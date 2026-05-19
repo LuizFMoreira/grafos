@@ -1,0 +1,119 @@
+# =========================
+# Claude / IA / Agents — nunca versionar
+# =========================
+.claude/
+.claude*/
+CLAUDE.md
+CLAUDE.local.md
+.claude.json
+.mcp.json
+.mcp.local.json
+MEMORY.md
+**/agents/
+**/skills/
+.anthropic/
+.cursor/
+.windsurf/
+.continue/
+.aider*
+.codeium/
+.copilot/
+.github/copilot-*
+
+# Settings locais de editor / IA
+settings.local.json
+**/.claude/settings.local.json
+
+# =========================
+# IDE / Editores
+# =========================
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.metadata/
+*.swp
+*.swo
+*~
+
+# =========================
+# Java / Maven / Gradle
+# =========================
+target/
+build/
+out/
+bin/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+hs_err_pid*
+.gradle/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+.env
+.env.local
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+
+# =========================
+# LaTeX (relatório)
+# =========================
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+*.run.xml
+*.bcf
+*.nav
+*.snm
+*.vrb
+
+# =========================
+# Sistema operacional
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# =========================
+# Logs / temporários
+# =========================
+*.log
+*.tmp
+*.bak
+*.cache
