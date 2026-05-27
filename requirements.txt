@@ -1,0 +1,26 @@
+# Dependências do Projeto: Análise de Colaboração em Repositórios GitHub
+
+# HTTP - Requisições para API do GitHub
+requests>=2.31.0
+
+# Variáveis de Ambiente - Segurança de credenciais
+python-dotenv>=1.0.0
+
+# Testes Unitários
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Formatação de Código
+black>=23.0.0
+
+# Linting
+pylint>=2.17.0
+
+# Type Checking
+mypy>=1.4.0
+
+# Documentação (opcional)
+# sphinx>=5.0.0
+
+# IMPORTANTE: networkX NÃO é usado!
+# Todas as estruturas de grafo são implementadas manualmente.
