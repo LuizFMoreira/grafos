@@ -4,7 +4,7 @@
 ║                                                                            ║
 ║     Universidade: PUC Minas                                               ║
 ║     Disciplina: Teoria dos Grafos e Computabilidade                      ║
-║     Status: ✅ FASE 1-2 COMPLETA - Fase 3 em progresso                    ║
+║     Status: ✅ FASE 1-4 COMPLETA - Fase 5 próxima                         ║
 ║                                                                            ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 
@@ -25,7 +25,12 @@ codigos/
 │   ├── interaction_type.py                  ✅ 70 linhas
 │   ├── interaction.py                       ✅ 65 linhas
 │   └── github_data.py                       ✅ 250+ linhas
-├── github_miner/                            ⏳ Pronto para implementar
+│
+├── github_miner/                            ✅ 600+ linhas
+│   ├── github_client.py                     ✅ 300+ linhas
+│   ├── github_parser.py                     ✅ 200+ linhas
+│   ├── rate_limiter.py                      ✅ 90 linhas
+│   └── data_transformer.py                  ✅ 150+ linhas
 ├── services/                                ⏳ Pronto para implementar
 ├── metrics/                                 ⏳ Pronto para implementar
 ├── exporters/                               ⏳ Pronto para implementar
@@ -99,19 +104,44 @@ Documentação:                6
 [X] CollaborationGraph model com helpers (get_user_by_id, get_user_by_login)
 [X] Testes unitários para modelos (test_models.py)
 
+✅ FASE 4: GITHUB MINER (100% COMPLETA)
+
+[X] GithubClient (HTTP, autenticação, paginação, rate limit)
+    - get_issues, get_pull_requests, get_issue_comments, get_pull_request_comments
+    - get_pull_request_reviews, get_repository_info
+    - Context manager support
+
+[X] GithubParser (converter JSON para modelos)
+    - parse_user, parse_issue, parse_pull_request, parse_review, parse_comment
+    - parse_datetime, extract_users_from_*, extract_all_unique_users
+    - Tratamento robusto de erros
+
+[X] RateLimiter (controle de taxa)
+    - wait_if_needed, record_request, get_remaining_requests
+    - Backoff automático
+
+[X] DataTransformer (orquestração)
+    - mine_repository (integra cliente + parser)
+    - Retorna CollaborationGraph completo
+    - _get_all_reviews, _get_all_comments, _parse_comments
+
+[X] Testes unitários (test_github_miner.py)
+    - 20+ casos de teste com mocks
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎯 PRÓXIMA FASE: Fase 4 - GITHUB MINER
+🎯 PRÓXIMA FASE: Fase 5 - GRAPH BUILDER SERVICE
 
 Tarefas:
-[ ] Implementar GithubClient (buscar issues, PRs, reviews, comments)
-[ ] Implementar GithubParser (converter JSON em modelos)
-[ ] Implementar RateLimiter (controle de rate limit)
-[ ] Implementar DataTransformer (normalizar dados)
-[ ] Testes para minerador GitHub
+[ ] Implementar GraphBuilderService
+    - Transforma CollaborationGraph em grafo de colaboração
+    - Cria arestas com pesos corretos
+    - Cria 4 grafos (total, issues, prs, mentions)
 
-Tempo estimado: 3-4 horas
-Dependências: models (✅ pronto)
+[ ] Testes para graph builder
+
+Tempo estimado: 2-3 horas
+Dependências: github_miner (✅ pronto), core.graph (✅ pronto)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -128,5 +158,5 @@ Dependências: models (✅ pronto)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Data: 2026-05-27
-Status: ✅ FASE 3 COMPLETA - Pronto para Fase 4
-Próximo: Implementar GithubClient e GithubMiner
+Status: ✅ FASE 4 COMPLETA - Pronto para Fase 5
+Próximo: Implementar GraphBuilderService
