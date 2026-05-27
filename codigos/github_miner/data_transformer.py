@@ -71,9 +71,7 @@ class DataTransformer:
                 raw_reviews = self._get_all_reviews(owner, repo, raw_pull_requests)
 
             if include_comments:
-                raw_comments = self._get_all_comments(
-                    owner, repo, raw_issues, raw_pull_requests
-                )
+                raw_comments = self._get_all_comments(owner, repo)
 
             # 2. Parseia dados
             issues = [
@@ -115,7 +113,7 @@ class DataTransformer:
     def _get_all_reviews(
         self, owner: str, repo: str, pull_requests: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """Busca reviews de todos os PRs.
+        """Busca reviews de todos os PRs (ainda requer N chamadas — sem endpoint bulk na API REST).
 
         Args:
             owner: Dono do repositório
@@ -126,11 +124,16 @@ class DataTransformer:
             Lista de reviews (dicts)
         """
         all_reviews = []
+        total = len(pull_requests)
 
-        for pr in pull_requests:
+        for i, pr in enumerate(pull_requests, 1):
+            if i % 50 == 0 or i == total:
+                print(f"    reviews: {i}/{total} PRs processados...")
             try:
                 pr_number = pr["number"]
                 reviews = self.client.get_pull_request_reviews(owner, repo, pr_number)
+                for review in reviews:
+                    review["pull_request"] = {"number": pr_number}
                 all_reviews.extend(reviews)
             except Exception:
                 continue
@@ -141,45 +144,33 @@ class DataTransformer:
         self,
         owner: str,
         repo: str,
-        issues: List[Dict[str, Any]],
-        pull_requests: List[Dict[str, Any]],
     ) -> List[Dict[str, Any]]:
-        """Busca comentários de todas as issues e PRs.
+        """Busca comentários de issues e PRs usando endpoints bulk (2 chamadas paginadas).
 
-        Args:
-            owner: Dono do repositório
-            repo: Nome do repositório
-            issues: Lista de dicts de issues
-            pull_requests: Lista de dicts de PRs
+        Usa GET /issues/comments e GET /pulls/comments em vez de iterar por item,
+        eliminando o problema N+1.
 
         Returns:
-            Lista de comentários (dicts) com metadados de contexto
+            Lista de comentários (dicts) com _issue_number e _pr_number inferidos
         """
+        import re
         all_comments = []
 
-        # Comentários em issues
-        for issue in issues:
-            try:
-                issue_number = issue["number"]
-                comments = self.client.get_issue_comments(owner, repo, issue_number)
-                for comment in comments:
-                    comment["_issue_number"] = issue_number
-                    comment["_pr_number"] = None
-                    all_comments.append(comment)
-            except Exception:
-                continue
+        issue_comments = self.client.get_all_issue_comments(owner, repo)
+        for comment in issue_comments:
+            issue_url = comment.get("issue_url", "")
+            match = re.search(r"/issues/(\d+)$", issue_url)
+            comment["_issue_number"] = int(match.group(1)) if match else None
+            comment["_pr_number"] = None
+            all_comments.append(comment)
 
-        # Comentários em PRs (review comments)
-        for pr in pull_requests:
-            try:
-                pr_number = pr["number"]
-                comments = self.client.get_pull_request_comments(owner, repo, pr_number)
-                for comment in comments:
-                    comment["_issue_number"] = None
-                    comment["_pr_number"] = pr_number
-                    all_comments.append(comment)
-            except Exception:
-                continue
+        pr_comments = self.client.get_all_pull_request_comments(owner, repo)
+        for comment in pr_comments:
+            pr_url = comment.get("pull_request_url", "")
+            match = re.search(r"/pulls/(\d+)$", pr_url)
+            comment["_issue_number"] = None
+            comment["_pr_number"] = int(match.group(1)) if match else None
+            all_comments.append(comment)
 
         return all_comments
 

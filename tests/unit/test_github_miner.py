@@ -52,9 +52,9 @@ class TestGithubClient:
     @patch("codigos.github_miner.github_client.requests.Session.request")
     def test_get_issues(self, mock_request):
         """Busca issues do repositório."""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = [
+        page1 = Mock()
+        page1.status_code = 200
+        page1.json.return_value = [
             {
                 "number": 1,
                 "title": "Bug",
@@ -65,12 +65,15 @@ class TestGithubClient:
                 "closed_at": None,
             }
         ]
-        mock_request.return_value = mock_response
+        page2 = Mock()
+        page2.status_code = 200
+        page2.json.return_value = []
+        mock_request.side_effect = [page1, page2]
 
         client = GithubClient(token="test_token")
         issues = client.get_issues("owner", "repo")
 
-        assert len(issues) > 0
+        assert len(issues) == 1
         assert issues[0]["number"] == 1
 
     def test_get_issues_invalid_params(self):
@@ -266,8 +269,8 @@ class TestDataTransformer:
     @patch.object(GithubClient, "get_issues")
     @patch.object(GithubClient, "get_pull_requests")
     @patch.object(GithubClient, "get_pull_request_reviews")
-    @patch.object(GithubClient, "get_issue_comments")
-    @patch.object(GithubClient, "get_pull_request_comments")
+    @patch.object(GithubClient, "get_all_issue_comments")
+    @patch.object(GithubClient, "get_all_pull_request_comments")
     def test_mine_repository_minimal(
         self, mock_pr_comments, mock_issue_comments, mock_reviews, mock_prs, mock_issues
     ):

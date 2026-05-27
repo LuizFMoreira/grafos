@@ -61,6 +61,7 @@ class GithubClient:
         self.per_page = per_page
         self.max_retries = max_retries
         self.retry_wait = retry_wait
+        self._timeout = 30
         self.session = requests.Session()
         self.session.headers.update(
             {
@@ -77,7 +78,7 @@ class GithubClient:
             RateLimitExceededError: Se rate limit esgotado após max_retries
         """
         try:
-            response = self.session.get(f"{self.BASE_URL}/rate_limit")
+            response = self.session.get(f"{self.BASE_URL}/rate_limit", timeout=self._timeout)
             response.raise_for_status()
             data = response.json()
 
@@ -117,11 +118,16 @@ class GithubClient:
 
         while retries < self.max_retries:
             try:
-                self._check_rate_limit()
+                response = self.session.request(method, url, timeout=self._timeout, **kwargs)
 
-                response = self.session.request(method, url, **kwargs)
-
-                if response.status_code == 403:
+                if response.status_code in (403, 429):
+                    remaining = int(response.headers.get("X-RateLimit-Remaining", 0))
+                    reset_ts = int(response.headers.get("X-RateLimit-Reset", 0))
+                    if remaining == 0 and reset_ts:
+                        wait_seconds = max(0, reset_ts - int(time.time())) + 1
+                        raise RateLimitExceededError(
+                            f"Rate limit exceeded. Resets in {wait_seconds}s"
+                        )
                     raise RateLimitExceededError("Rate limit exceeded")
                 if response.status_code == 404:
                     raise InvalidRepositoryError(
@@ -134,11 +140,18 @@ class GithubClient:
 
                 return response.json()
 
-            except RateLimitExceededError:
+            except RateLimitExceededError as e:
                 retries += 1
                 if retries >= self.max_retries:
                     raise
-                time.sleep(self.retry_wait)
+                wait = self.retry_wait
+                msg = str(e)
+                if "Resets in" in msg:
+                    try:
+                        wait = int(msg.split("Resets in")[1].split("s")[0].strip())
+                    except (ValueError, IndexError):
+                        pass
+                time.sleep(wait)
 
             except requests.RequestException as e:
                 raise GithubMiningError(f"Request failed: {e}")
@@ -278,6 +291,32 @@ class GithubClient:
             raise ValueError(f"pr_number must be >= 1, got {pr_number}")
 
         endpoint = f"/repos/{owner}/{repo}/pulls/{pr_number}/reviews"
+        return self._paginate(endpoint)
+
+    def get_all_issue_comments(
+        self, owner: str, repo: str
+    ) -> List[Dict[str, Any]]:
+        """Busca todos os comentários de issues em uma única passagem paginada.
+
+        Usa o endpoint bulk /issues/comments em vez de iterar por issue,
+        evitando o problema N+1.
+        """
+        if not owner or not repo:
+            raise ValueError("owner and repo must be non-empty strings")
+        endpoint = f"/repos/{owner}/{repo}/issues/comments"
+        return self._paginate(endpoint)
+
+    def get_all_pull_request_comments(
+        self, owner: str, repo: str
+    ) -> List[Dict[str, Any]]:
+        """Busca todos os comentários de review de PRs em uma única passagem paginada.
+
+        Usa o endpoint bulk /pulls/comments em vez de iterar por PR,
+        evitando o problema N+1.
+        """
+        if not owner or not repo:
+            raise ValueError("owner and repo must be non-empty strings")
+        endpoint = f"/repos/{owner}/{repo}/pulls/comments"
         return self._paginate(endpoint)
 
     def get_repository_info(self, owner: str, repo: str) -> Dict[str, Any]:

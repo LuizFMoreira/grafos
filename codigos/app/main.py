@@ -94,7 +94,7 @@ def log(message: str, verbose: bool = False) -> None:
         message: Mensagem a imprimir
         verbose: Se True, apenas imprime se verbose mode ativado
     """
-    if not verbose:
+    if verbose:
         print(message)
 
 
