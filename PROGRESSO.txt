@@ -4,7 +4,7 @@
 ║                                                                            ║
 ║     Universidade: PUC Minas                                               ║
 ║     Disciplina: Teoria dos Grafos e Computabilidade                      ║
-║     Status: ✅ FASE 1-5 COMPLETA - Fase 6 próxima                         ║
+║     Status: ✅ FASE 1-6 COMPLETA - Fase 7 próxima                         ║
 ║                                                                            ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 
@@ -32,9 +32,9 @@ codigos/
 │   ├── rate_limiter.py                      ✅ 90 linhas
 │   └── data_transformer.py                  ✅ 150+ linhas
 │
-├── services/                                ✅ 300+ linhas
-│   └── graph_builder.py                     ✅ 300+ linhas
-├── metrics/                                 ⏳ Pronto para implementar
+├── services/                                ✅ 700+ linhas
+│   ├── graph_builder.py                     ✅ 300+ linhas
+│   └── metrics.py                           ✅ 400+ linhas
 ├── exporters/                               ⏳ Pronto para implementar
 ├── exceptions/
 │   ├── graph_exceptions.py                  ✅ 46 linhas
@@ -166,18 +166,47 @@ Documentação:                6
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎯 PRÓXIMA FASE: Fase 6 - MÉTRICAS
+✅ FASE 6: MÉTRICAS (100% COMPLETA)
+
+[X] MetricsService com 9 métricas
+    1. Degree Centrality: (in_degree + out_degree) / (2 * (n-1))
+    2. In-Degree: número de arestas entrando
+    3. Out-Degree: número de arestas saindo
+    4. Betweenness Centrality: frequência em caminhos mais curtos
+    5. Closeness Centrality: proximidade média ao grafo
+    6. PageRank: importância baseada em conexões recursivas
+    7. Clustering Coefficient: densidade local (triângulos)
+    8. Eigenvector Centrality: importância recursiva por vizinhos
+    9. Harmonic Centrality: distância harmônica (implementado via closeness)
+
+[X] Suporte a NetworkX
+    - Cria DiGraph equivalente para cálculos avançados
+    - Graceful degradation se NetworkX não instalado
+    - Trata exceções de convergência
+
+[X] Métodos utilitários
+    - calculate_all_metrics(): retorna MetricsResult para cada usuário
+    - get_top_by_metric(): ranking de usuários por métrica
+    - get_metrics_summary(): agregados (média, máximo, mínimo)
+
+[X] Testes unitários (test_metrics.py)
+    - 20+ casos de teste
+    - Testes em grafo simples, estrela e desconectado
+    - Validação de intervalos [0, 1]
+    - Testes de top-N e resumo
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 PRÓXIMA FASE: Fase 7 - EXPORTADORES
 
 Tarefas:
-[ ] Implementar MetricsService
-    - Calcular 9 tipos de métricas (centrality, pagerank, clustering, etc)
-    - Usar networkx para algoritmos complexos
-    - Retornar MetricsResult para cada usuário
-
-[ ] Testes para métricas
+[ ] Implementar GephiExporter (base class)
+[ ] Implementar CSVExporter (nodes.csv + edges.csv)
+[ ] Implementar GEXFExporter (grafo estruturado)
+[ ] Testes para exportadores
 
 Tempo estimado: 2-3 horas
-Dependências: services.graph_builder (✅ pronto), networkx
+Dependências: services.metrics (✅ pronto)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -194,5 +223,5 @@ Dependências: services.graph_builder (✅ pronto), networkx
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Data: 2026-05-27
-Status: ✅ FASE 5 COMPLETA - Pronto para Fase 6
-Próximo: Implementar MetricsService
+Status: ✅ FASE 6 COMPLETA - Pronto para Fase 7
+Próximo: Implementar Exportadores
