@@ -4,7 +4,7 @@
 ║                                                                            ║
 ║     Universidade: PUC Minas                                               ║
 ║     Disciplina: Teoria dos Grafos e Computabilidade                      ║
-║     Status: ✅ FASE 1-4 COMPLETA - Fase 5 próxima                         ║
+║     Status: ✅ FASE 1-5 COMPLETA - Fase 6 próxima                         ║
 ║                                                                            ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 
@@ -31,7 +31,9 @@ codigos/
 │   ├── github_parser.py                     ✅ 200+ linhas
 │   ├── rate_limiter.py                      ✅ 90 linhas
 │   └── data_transformer.py                  ✅ 150+ linhas
-├── services/                                ⏳ Pronto para implementar
+│
+├── services/                                ✅ 300+ linhas
+│   └── graph_builder.py                     ✅ 300+ linhas
 ├── metrics/                                 ⏳ Pronto para implementar
 ├── exporters/                               ⏳ Pronto para implementar
 ├── exceptions/
@@ -130,18 +132,52 @@ Documentação:                6
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🎯 PRÓXIMA FASE: Fase 5 - GRAPH BUILDER SERVICE
+✅ FASE 5: GRAPH BUILDER SERVICE (100% COMPLETA)
+
+[X] GraphBuilderService
+    - build_collaboration_graph: todas as interações
+    - build_issues_graph: apenas comentários em issues
+    - build_pull_requests_graph: comentários + reviews + merges
+    - build_all_graphs: constrói os 3 grafos simultaneamente
+
+[X] Transformação de dados
+    - Mapeia usuários para índices de vértices
+    - Adiciona rótulos de usuários (login)
+    - Cria arestas com pesos corretos:
+      * Comentário em issue: peso 2
+      * Comentário em PR: peso 2
+      * Review em PR: peso 4
+      * Merge de PR: peso 5
+    - Filtra self-loops automaticamente
+
+[X] Suporte a ambas implementações
+    - AdjacencyListGraph (padrão, esparso)
+    - AdjacencyMatrixGraph (alternativa, densa)
+    - Troca via parametro use_adjacency_list
+
+[X] Utilitário de estatísticas
+    - get_graph_statistics(): vertices, edges, density, conectividade
+
+[X] Testes unitários (test_graph_builder.py)
+    - 15+ casos de teste
+    - Validação de pesos
+    - Prevenção de self-loops
+    - Testes de conectividade
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🎯 PRÓXIMA FASE: Fase 6 - MÉTRICAS
 
 Tarefas:
-[ ] Implementar GraphBuilderService
-    - Transforma CollaborationGraph em grafo de colaboração
-    - Cria arestas com pesos corretos
-    - Cria 4 grafos (total, issues, prs, mentions)
+[ ] Implementar MetricsService
+    - Calcular 9 tipos de métricas (centrality, pagerank, clustering, etc)
+    - Usar networkx para algoritmos complexos
+    - Retornar MetricsResult para cada usuário
 
-[ ] Testes para graph builder
+[ ] Testes para métricas
 
 Tempo estimado: 2-3 horas
-Dependências: github_miner (✅ pronto), core.graph (✅ pronto)
+Dependências: services.graph_builder (✅ pronto), networkx
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -158,5 +194,5 @@ Dependências: github_miner (✅ pronto), core.graph (✅ pronto)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Data: 2026-05-27
-Status: ✅ FASE 4 COMPLETA - Pronto para Fase 5
-Próximo: Implementar GraphBuilderService
+Status: ✅ FASE 5 COMPLETA - Pronto para Fase 6
+Próximo: Implementar MetricsService

@@ -17,7 +17,7 @@ matrix[0][1] = 2 significa aresta 0 → 1 com peso 2
 from typing import List, Optional
 
 from .abstract_graph import AbstractGraph
-from ..exceptions.graph_exceptions import (
+from ...exceptions.graph_exceptions import (
     InvalidVertexError,
     InvalidEdgeError,
     SelfLoopError,

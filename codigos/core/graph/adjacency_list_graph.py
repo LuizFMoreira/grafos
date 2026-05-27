@@ -18,7 +18,7 @@ from typing import Dict, List, Optional, Tuple
 
 from .edge import Edge
 from .abstract_graph import AbstractGraph
-from ..exceptions.graph_exceptions import (
+from ...exceptions.graph_exceptions import (
     InvalidVertexError,
     InvalidEdgeError,
     SelfLoopError,

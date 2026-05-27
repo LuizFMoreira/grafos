@@ -16,7 +16,7 @@ uma interface consistente para diferentes implementações.
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from ..exceptions.graph_exceptions import InvalidVertexError
+from ...exceptions.graph_exceptions import InvalidVertexError
 
 
 class AbstractGraph(ABC):
