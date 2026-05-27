@@ -98,7 +98,8 @@ class GithubParser:
 
             if data.get("merged_at"):
                 merged_at = GithubParser.parse_datetime(data["merged_at"])
-                merged_by = GithubParser.parse_user(data["merged_by"])
+                merged_by_data = data.get("merged_by")
+                merged_by = GithubParser.parse_user(merged_by_data) if merged_by_data else None
                 state = "merged"
             elif data.get("closed_at"):
                 state = "closed"

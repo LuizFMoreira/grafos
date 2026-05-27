@@ -72,13 +72,11 @@ class PullRequest:
             raise ValueError(f"PR number must be >= 1, got {self.number}")
         if self.state not in ("open", "closed", "merged"):
             raise ValueError(f"Invalid state: {self.state}")
-        if self.merged_at and not self.merged_by:
-            raise ValueError("merged_at requires merged_by to be set")
 
     @property
     def is_merged(self) -> bool:
         """Verifica se o PR foi mergeado."""
-        return self.merged_by is not None
+        return self.merged_at is not None
 
 
 @dataclass
