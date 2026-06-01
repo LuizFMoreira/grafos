@@ -25,18 +25,24 @@ class GithubParser:
     """
 
     @staticmethod
-    def parse_user(data: Dict[str, Any]) -> User:
+    def parse_user(data: Optional[Dict[str, Any]]) -> Optional[User]:
         """Converte dict JSON para User.
 
+        Retorna None se o dado for None (acontece quando a conta GitHub foi
+        deletada — o payload da API vem com "user": null em comentários,
+        reviews, issues ou PRs antigos).
+
         Args:
-            data: Dict com 'id' e 'login'
+            data: Dict com 'id' e 'login', ou None
 
         Returns:
-            User object
+            User object, ou None se data for None
 
         Raises:
-            DataParsingError: Se dados inválidos
+            DataParsingError: Se o dict existir mas estiver malformado
         """
+        if data is None:
+            return None
         try:
             return User(id=int(data["id"]), login=str(data["login"]))
         except (KeyError, ValueError, TypeError) as e:
@@ -56,11 +62,19 @@ class GithubParser:
             DataParsingError: Se dados inválidos
         """
         try:
-            author = GithubParser.parse_user(data["user"])
+            author = GithubParser.parse_user(data.get("user"))
+            if author is None:
+                raise DataParsingError("Issue without author (deleted account)")
             created_at = GithubParser.parse_datetime(data["created_at"])
             updated_at = GithubParser.parse_datetime(data["updated_at"])
 
             state = "closed" if data.get("closed_at") else "open"
+            closed_at = (
+                GithubParser.parse_datetime(data["closed_at"])
+                if data.get("closed_at")
+                else None
+            )
+            closed_by = GithubParser.parse_user(data.get("closed_by"))
 
             return Issue(
                 number=int(data["number"]),
@@ -70,6 +84,8 @@ class GithubParser:
                 updated_at=updated_at,
                 url=str(data["html_url"]),
                 state=state,
+                closed_by=closed_by,
+                closed_at=closed_at,
             )
         except (KeyError, ValueError, TypeError) as e:
             raise DataParsingError(f"Failed to parse issue: {e}")
@@ -88,7 +104,9 @@ class GithubParser:
             DataParsingError: Se dados inválidos
         """
         try:
-            author = GithubParser.parse_user(data["user"])
+            author = GithubParser.parse_user(data.get("user"))
+            if author is None:
+                raise DataParsingError("PR without author (deleted account)")
             created_at = GithubParser.parse_datetime(data["created_at"])
             updated_at = GithubParser.parse_datetime(data["updated_at"])
 
@@ -98,8 +116,7 @@ class GithubParser:
 
             if data.get("merged_at"):
                 merged_at = GithubParser.parse_datetime(data["merged_at"])
-                merged_by_data = data.get("merged_by")
-                merged_by = GithubParser.parse_user(merged_by_data) if merged_by_data else None
+                merged_by = GithubParser.parse_user(data.get("merged_by"))
                 state = "merged"
             elif data.get("closed_at"):
                 state = "closed"
@@ -133,7 +150,9 @@ class GithubParser:
             DataParsingError: Se dados inválidos
         """
         try:
-            author = GithubParser.parse_user(data["user"])
+            author = GithubParser.parse_user(data.get("user"))
+            if author is None:
+                raise DataParsingError("Review without author (deleted account)")
             submitted_at = GithubParser.parse_datetime(data["submitted_at"])
 
             # Mapeia estado GitHub para nosso enum
@@ -177,7 +196,9 @@ class GithubParser:
             DataParsingError: Se dados inválidos
         """
         try:
-            author = GithubParser.parse_user(data["user"])
+            author = GithubParser.parse_user(data.get("user"))
+            if author is None:
+                raise DataParsingError("Comment without author (deleted account)")
             created_at = GithubParser.parse_datetime(data["created_at"])
             updated_at = GithubParser.parse_datetime(data["updated_at"])
 
@@ -228,8 +249,9 @@ class GithubParser:
 
         for issue in issues:
             try:
-                author = GithubParser.parse_user(issue["user"])
-                users_dict[author.id] = author
+                author = GithubParser.parse_user(issue.get("user"))
+                if author is not None:
+                    users_dict[author.id] = author
             except DataParsingError:
                 continue
 
@@ -251,11 +273,12 @@ class GithubParser:
 
         for pr in pull_requests:
             try:
-                author = GithubParser.parse_user(pr["user"])
-                users_dict[author.id] = author
+                author = GithubParser.parse_user(pr.get("user"))
+                if author is not None:
+                    users_dict[author.id] = author
 
-                if pr.get("merged_by"):
-                    merger = GithubParser.parse_user(pr["merged_by"])
+                merger = GithubParser.parse_user(pr.get("merged_by"))
+                if merger is not None:
                     users_dict[merger.id] = merger
             except DataParsingError:
                 continue
@@ -278,8 +301,9 @@ class GithubParser:
 
         for comment in comments:
             try:
-                author = GithubParser.parse_user(comment["user"])
-                users_dict[author.id] = author
+                author = GithubParser.parse_user(comment.get("user"))
+                if author is not None:
+                    users_dict[author.id] = author
             except DataParsingError:
                 continue
 
@@ -316,8 +340,9 @@ class GithubParser:
         # Extrai usuários de reviews
         for review in reviews or []:
             try:
-                reviewer = GithubParser.parse_user(review["user"])
-                users_dict[reviewer.id] = reviewer
+                reviewer = GithubParser.parse_user(review.get("user"))
+                if reviewer is not None:
+                    users_dict[reviewer.id] = reviewer
             except DataParsingError:
                 continue
 

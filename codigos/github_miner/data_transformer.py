@@ -73,17 +73,27 @@ class DataTransformer:
             if include_comments:
                 raw_comments = self._get_all_comments(owner, repo)
 
-            # 2. Parseia dados
-            issues = [
-                GithubParser.parse_issue(raw) for raw in raw_issues
-            ]
-            pull_requests = [
-                GithubParser.parse_pull_request(raw) for raw in raw_pull_requests
-            ]
-            reviews = [
-                GithubParser.parse_review(raw, raw["pull_request"]["number"])
-                for raw in raw_reviews
-            ]
+            # 2. Parseia dados — pula registros com autor deletado (user=null)
+            issues = []
+            for raw in raw_issues:
+                try:
+                    issues.append(GithubParser.parse_issue(raw))
+                except Exception:
+                    continue
+            pull_requests = []
+            for raw in raw_pull_requests:
+                try:
+                    pull_requests.append(GithubParser.parse_pull_request(raw))
+                except Exception:
+                    continue
+            reviews = []
+            for raw in raw_reviews:
+                try:
+                    reviews.append(
+                        GithubParser.parse_review(raw, raw["pull_request"]["number"])
+                    )
+                except Exception:
+                    continue
             comments = self._parse_comments(raw_comments)
 
             # 3. Extrai usuários únicos

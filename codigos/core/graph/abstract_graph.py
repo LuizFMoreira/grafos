@@ -67,18 +67,18 @@ class AbstractGraph(ABC):
         if v < 0 or v >= self._vertex_count:
             raise InvalidVertexError(v, self._vertex_count)
 
-    def _validate_vertices(self, u: int, v: int) -> None:
-        """Valida se dois vértices são válidos.
+    def _validate_vertices(self, *vertices: int) -> None:
+        """Valida se um conjunto de vértices é válido.
 
-        Args:
-            u: Primeiro vértice
-            v: Segundo vértice
+        Aceita qualquer quantidade de vértices; útil tanto para operações
+        binárias (add_edge, has_edge) quanto para verificações sobre múltiplas
+        arestas (is_divergent, is_convergent, is_incident).
 
         Raises:
             InvalidVertexError: Se algum vértice for inválido
         """
-        self._validate_vertex(u)
-        self._validate_vertex(v)
+        for v in vertices:
+            self._validate_vertex(v)
 
     # ========== INFORMAÇÃO BÁSICA ==========
 

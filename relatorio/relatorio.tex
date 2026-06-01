@@ -1,0 +1,262 @@
+% =============================================================================
+% Relatório do TP de Teoria de Grafos e Computabilidade — PUC Minas 2026/1
+%
+% INSTRUÇÕES PARA USAR O TEMPLATE OFICIAL DA SBC:
+%   1. Acesse: https://www.overleaf.com/latex/templates/sbc-conferences-template
+%   2. Baixe os arquivos: sbc-template.cls e sbc.bst
+%   3. Coloque-os nesta pasta (relatorio/) ao lado deste .tex
+%   4. Substitua a linha \documentclass{article} abaixo por:
+%        \documentclass[12pt]{sbc-template}
+%      e remova os pacotes que o sbc-template já carrega (geometry, fontenc...)
+%
+% Este esqueleto está em \documentclass{article} para compilar imediatamente
+% mesmo antes de você obter o template SBC, facilitando a iteração local.
+% =============================================================================
+
+\documentclass[a4paper,11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta}
+\usepackage{booktabs}
+\usepackage{caption}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!50!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  language=Python
+}
+
+\title{
+  Análise da Rede de Colaboração em Repositórios do GitHub\\
+  utilizando Teoria de Grafos
+}
+\author{
+  % TODO: substituir pelos integrantes do grupo (nome completo e matrícula)
+  Integrante 1 \and
+  Integrante 2 \and
+  Integrante 3 \and
+  Integrante 4 \\[1ex]
+  \small Pontifícia Universidade Católica de Minas Gerais\\
+  \small Curso de Engenharia de Software\\
+  \small Disciplina: Teoria de Grafos e Computabilidade — Prof. Leonardo V.\ Cardoso
+}
+\date{2026/1}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+% TODO: resumir em 5--10 linhas o problema, a abordagem e os principais
+% resultados obtidos. Falar do repositório escolhido, dos 4 grafos modelados,
+% das métricas calculadas e do principal insight observado.
+\end{abstract}
+
+% -----------------------------------------------------------------------------
+\section{Introdução}\label{sec:intro}
+
+% Contextualize o problema: por que estudar colaboração em projetos
+% open-source com grafos? Cite a motivação acadêmica (disciplina) e prática
+% (entender comunidades de software). Apresente o repositório escolhido
+% (>5.000 estrelas) e justifique a escolha (volume de dados, diversidade
+% de interações, relevância da comunidade).
+%
+% Estrutura sugerida:
+%   - Contexto e motivação
+%   - Repositório escolhido (TODO: definir e justificar)
+%   - Objetivos específicos do trabalho
+%   - Organização do restante do relatório
+
+% -----------------------------------------------------------------------------
+\section{Modelagem do Problema}\label{sec:modelagem}
+
+% Definição formal dos grafos. Reproduza aqui o quadro dos 4 grafos:
+%   Grafo 1 (comentários), Grafo 2 (fechamento), Grafo 3 (reviews/merges),
+%   Grafo Integrado (ponderado).
+%
+% Apresente a tabela de pesos exigida pelo enunciado:
+
+\begin{table}[h]
+  \centering
+  \caption{Pesos das interações no grafo integrado (Etapa 1 do TP).}
+  \label{tab:pesos}
+  \begin{tabular}{lc}
+    \toprule
+    \textbf{Tipo de interação} & \textbf{Peso} \\
+    \midrule
+    Comentário em issue ou pull request           & 2 \\
+    Fechamento de issue por outro usuário         & 3 \\
+    Revisão / aprovação de pull request           & 4 \\
+    Merge de pull request                         & 5 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% Discuta: por que esses pesos refletem a intensidade da colaboração?
+% Mencione que os pesos podem ser adaptados (enunciado permite) e justifique
+% qualquer adaptação que vocês decidirem fazer.
+
+% -----------------------------------------------------------------------------
+\section{Arquitetura da Ferramenta}\label{sec:arquitetura}
+
+% Apresente o diagrama de classes principal. Sugestão usando TikZ:
+% (substitua/melhore conforme necessário)
+
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}[
+    node distance=1.2cm and 2cm,
+    every node/.style={draw, rounded corners, font=\small, align=center},
+    abstract/.style={fill=blue!8},
+    concrete/.style={fill=green!10},
+    arrow/.style={-{Stealth[length=2mm]}, thick}
+  ]
+    \node[abstract] (abs) {AbstractGraph\\\textit{(abstrata)}};
+    \node[concrete, below left=of abs] (lst) {AdjacencyListGraph};
+    \node[concrete, below right=of abs] (mat) {AdjacencyMatrixGraph};
+    \draw[arrow] (lst) -- (abs);
+    \draw[arrow] (mat) -- (abs);
+  \end{tikzpicture}
+  \caption{Hierarquia da API de grafos.}
+  \label{fig:classes}
+\end{figure}
+
+% Descreva os módulos:
+%   - codigos/core/graph/     -> AbstractGraph e implementações
+%   - codigos/github_miner/   -> coleta via API REST do GitHub
+%   - codigos/services/       -> GraphBuilderService e MetricsService
+%   - codigos/exporters/      -> GEXF, GraphML, CSV
+%   - codigos/app/            -> CLI principal e api_demo
+%
+% Justifique:
+%   - Por que duas implementações (lista vs matriz)? -> trade-off espaço/tempo
+%   - Onde a herança (AbstractGraph) é usada e por quê
+%   - Restrições atendidas: idempotência de addEdge, rejeição de self-loops,
+%     exceções para índices inválidos, ausência de bibliotecas externas de
+%     grafo (NetworkX, igraph etc.).
+
+% -----------------------------------------------------------------------------
+\section{Coleta e Processamento dos Dados}\label{sec:coleta}
+
+% Descreva o fluxo do github_miner:
+%   1. GithubClient autentica e consome /repos/{owner}/{repo}/...
+%   2. RateLimiter respeita os 5000 req/h da API
+%   3. GithubParser transforma JSON em modelos tipados (User, Issue, PR,
+%      Review, Comment) com closed_by e merged_by capturados
+%   4. DataTransformer agrega tudo em CollaborationGraph
+%   5. GraphBuilderService gera os 4 grafos (Tabela~\ref{tab:pesos})
+
+% Cite volume de dados coletados (TODO: rodar e preencher)
+%   - X usuários únicos
+%   - Y issues / Z pull requests
+%   - W comentários
+%   - K reviews / merges
+
+% -----------------------------------------------------------------------------
+\section{Métricas e Análise}\label{sec:metricas}
+
+% Liste e explique cada métrica implementada (todas SEM bibliotecas externas
+% de grafo, em \texttt{codigos/services/metrics.py}):
+
+\subsection{Centralidade}
+% Degree centrality, in/out-degree, betweenness (Brandes), closeness,
+% PageRank (power iteration, damping 0.85), eigenvector (power iteration
+% sobre A^T). Inclua a fórmula de cada uma.
+
+\subsection{Estrutura e coesão}
+% Densidade da rede, coeficiente de clustering local, assortatividade
+% (correlação de Pearson sobre graus dos extremos).
+
+\subsection{Comunidades}
+% Detecção por Label Propagation Algorithm (LPA), modularidade Q
+% (Newman, ponderada), bridging ties (arestas entre comunidades distintas
+% ordenadas por peso).
+
+% -----------------------------------------------------------------------------
+\section{Resultados}\label{sec:resultados}
+
+% TODO: rodar a CLI sobre o repositório escolhido e preencher.
+% Inclua:
+%   - Tabela de top-10 colaboradores por PageRank
+%   - Tabela de top-10 por betweenness
+%   - Gráfico de distribuição de graus
+%   - Screenshot do grafo no Gephi (importar .gexf gerado)
+%   - Modularidade Q obtida e número de comunidades detectadas
+%   - Exemplos de bridging ties
+
+\begin{figure}[h]
+  \centering
+  \fbox{\parbox{0.7\linewidth}{\centering
+    \vspace{4cm}
+    [Substituir por screenshot do grafo no Gephi]
+    \vspace{4cm}
+  }}
+  \caption{Visualização do grafo integrado no Gephi.}
+  \label{fig:gephi}
+\end{figure}
+
+% -----------------------------------------------------------------------------
+\section{Responsabilidades dos Integrantes}\label{sec:responsabilidades}
+
+% Exigência do enunciado: indicar o que cada integrante fez.
+\begin{itemize}
+  \item \textbf{Integrante 1}: % TODO
+  \item \textbf{Integrante 2}: % TODO
+  \item \textbf{Integrante 3}: % TODO
+  \item \textbf{Integrante 4}: % TODO
+\end{itemize}
+
+% -----------------------------------------------------------------------------
+\section{Conclusão}\label{sec:conclusao}
+
+% Resuma:
+%   - O que foi entregue (4 grafos, 12+ métricas, exportação Gephi, testes)
+%   - Principais aprendizados sobre a rede analisada
+%   - Limitações encontradas (rate limit da API, escolhas de modelagem)
+%   - Trabalhos futuros (Louvain, métricas temporais, comparação entre repos)
+
+% -----------------------------------------------------------------------------
+\begin{thebibliography}{9}
+
+\bibitem{brandes2001}
+  Ulrik Brandes. \emph{A Faster Algorithm for Betweenness Centrality}.
+  Journal of Mathematical Sociology, 25(2):163--177, 2001.
+
+\bibitem{page1999}
+  Lawrence Page, Sergey Brin, Rajeev Motwani, Terry Winograd.
+  \emph{The PageRank Citation Ranking: Bringing Order to the Web}.
+  Stanford InfoLab, 1999.
+
+\bibitem{newman2010}
+  M.\ E.\ J.\ Newman. \emph{Networks: An Introduction}.
+  Oxford University Press, 2010.
+
+\bibitem{raghavan2007}
+  U.\ N.\ Raghavan, R.\ Albert, S.\ Kumara.
+  \emph{Near linear time algorithm to detect community structures in
+  large-scale networks}. Physical Review E, 76(3), 2007.
+
+\bibitem{gephi}
+  Mathieu Bastian, Sebastien Heymann, Mathieu Jacomy.
+  \emph{Gephi: an open source software for exploring and manipulating networks}.
+  ICWSM, 2009.
+
+\end{thebibliography}
+
+\end{document}

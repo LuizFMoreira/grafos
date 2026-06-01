@@ -344,3 +344,105 @@ class TestGraphBuilderService:
         assert stats["vertices"] == 3
         assert stats["max_edges"] == 3 * (3 - 1)
         assert 0 <= stats["density"] <= 1
+
+
+class TestPdfAlignedGraphs:
+    """Garante que os 3+1 grafos exigidos pelo PDF (Etapa 1) são gerados com
+    os pesos corretos e contêm exatamente as arestas esperadas."""
+
+    @pytest.fixture
+    def users(self):
+        return [
+            User(id=1, login="alice"),    # autora da issue
+            User(id=2, login="bob"),      # autor do PR
+            User(id=3, login="charlie"),  # comenta + revisa
+            User(id=4, login="dani"),     # fecha issue alheia
+        ]
+
+    @pytest.fixture
+    def data(self, users):
+        alice, bob, charlie, dani = users
+        t = datetime.now()
+        issues = [
+            Issue(
+                number=1, title="bug", author=alice,
+                created_at=t, updated_at=t,
+                url="u", state="closed",
+                closed_by=dani, closed_at=t,
+            ),
+        ]
+        prs = [
+            PullRequest(
+                number=10, title="feat", author=bob,
+                created_at=t, updated_at=t,
+                url="u", merged_at=t, merged_by=alice, state="merged",
+            ),
+        ]
+        reviews = [
+            Review(id=1, author=charlie, pr_number=10,
+                   state="APPROVED", submitted_at=t, url="u"),
+        ]
+        comments = [
+            Comment(id=100, author=charlie, body="x",
+                    created_at=t, updated_at=t, url="u", issue_number=1),
+            Comment(id=101, author=charlie, body="y",
+                    created_at=t, updated_at=t, url="u", pr_number=10),
+        ]
+        return CollaborationGraph(
+            repository="o/r", users=users, issues=issues,
+            pull_requests=prs, reviews=reviews, comments=comments,
+            mined_at=t,
+        )
+
+    def test_comments_graph_has_only_comment_edges(self, data):
+        g = GraphBuilderService().build_comments_graph(data)
+        # charlie→alice (comentário em issue), charlie→bob (comentário em PR)
+        assert g.get_edge_count() == 2
+        assert g.has_edge(2, 0) is True  # charlie(idx 2) → alice(idx 0)
+        assert g.has_edge(2, 1) is True  # charlie → bob
+        assert g.get_edge_weight(2, 0) == pytest.approx(2.0)
+
+    def test_issue_close_graph_only_third_party_closures(self, data):
+        g = GraphBuilderService().build_issue_close_graph(data)
+        # dani fechou issue de alice → 1 aresta peso 3
+        assert g.get_edge_count() == 1
+        assert g.has_edge(3, 0) is True  # dani(idx 3) → alice
+        assert g.get_edge_weight(3, 0) == pytest.approx(3.0)
+
+    def test_reviews_merges_graph_has_review_and_merge(self, data):
+        g = GraphBuilderService().build_reviews_merges_graph(data)
+        # charlie revisou PR de bob (peso 4) + alice fez merge do PR de bob (peso 5)
+        assert g.get_edge_count() == 2
+        assert g.get_edge_weight(2, 1) == pytest.approx(4.0)  # charlie → bob
+        assert g.get_edge_weight(0, 1) == pytest.approx(5.0)  # alice → bob
+
+    def test_integrated_graph_accumulates_weights(self, data):
+        g = GraphBuilderService().build_integrated_graph(data)
+        # charlie → bob ocorre via comentário (2) e via review (4) → 6
+        assert g.get_edge_weight(2, 1) == pytest.approx(6.0)
+        # alice → bob é só do merge (5)
+        assert g.get_edge_weight(0, 1) == pytest.approx(5.0)
+        # dani → alice é só do fechamento (3)
+        assert g.get_edge_weight(3, 0) == pytest.approx(3.0)
+        # charlie → alice é só comentário (2)
+        assert g.get_edge_weight(2, 0) == pytest.approx(2.0)
+
+    def test_build_all_pdf_graphs_returns_four_keys(self, data):
+        graphs = GraphBuilderService().build_all_pdf_graphs(data)
+        assert set(graphs.keys()) == {"comments", "issue_close", "reviews_merges", "integrated"}
+        assert all(g.get_vertex_count() == 4 for g in graphs.values())
+
+    def test_issue_close_ignores_self_closure(self, users):
+        alice, *_ = users
+        t = datetime.now()
+        # alice fecha a própria issue → não vira aresta
+        issues = [
+            Issue(number=2, title="x", author=alice, created_at=t, updated_at=t,
+                  url="u", state="closed", closed_by=alice, closed_at=t),
+        ]
+        data = CollaborationGraph(
+            repository="o/r", users=users, issues=issues,
+            pull_requests=[], reviews=[], comments=[], mined_at=t,
+        )
+        g = GraphBuilderService().build_issue_close_graph(data)
+        assert g.get_edge_count() == 0

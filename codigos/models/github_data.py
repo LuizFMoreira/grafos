@@ -33,6 +33,8 @@ class Issue:
     updated_at: datetime
     url: str
     state: str = "open"
+    closed_by: Optional[User] = None
+    closed_at: Optional[datetime] = None
 
     def __post_init__(self):
         if self.number < 1:

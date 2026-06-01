@@ -97,6 +97,10 @@ class TestCLI:
             'pull_requests': mock_graph,
         }
         mock_builder.return_value = mock_builder_instance
+        mock_builder.get_graph_statistics.return_value = {
+            'vertices': 2, 'edges': 1, 'max_edges': 2,
+            'density': 0.5, 'is_connected': False, 'is_complete': False,
+        }
 
         from codigos.models import MetricsResult
         mock_metrics_instance = MagicMock()
@@ -206,6 +210,10 @@ class TestCLI:
             'pull_requests': mock_graph,
         }
         mock_builder.return_value = mock_builder_instance
+        mock_builder.get_graph_statistics.return_value = {
+            'vertices': 1, 'edges': 0, 'max_edges': 0,
+            'density': 0.0, 'is_connected': True, 'is_complete': False,
+        }
 
         mock_metrics_instance = MagicMock()
         mock_metrics_instance.calculate_all_metrics.return_value = [
