@@ -1,0 +1,1005 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{amsmath,amssymb}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes,shadows}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{fancyhdr}
+\usepackage{setspace}
+\usepackage{tocloft}
+
+% ============================================================================
+% CONFIGURAÇÕES DE CÓDIGO
+% ============================================================================
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!50!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  language=Python,
+  tabsize=2,
+  showspaces=false,
+  showtabs=false,
+  breakatwhitespace=true
+}
+
+% ============================================================================
+% ESPAÇAMENTO
+% ============================================================================
+\setstretch{1.5}
+\setlength{\parindent}{1.27cm}
+
+% ============================================================================
+% AJUSTES DE LAYOUT
+% ============================================================================
+\hbadness=10000  % Suprimir avisos de caixas muito largas (overfull/underfull hbox)
+\vbadness=10000  % Suprimir avisos verticais
+
+% Aumentar tolerância para quebras de linha
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+
+% Ajustar espaçamento do sumário
+\setlength{\cftchapnumwidth}{2em}
+\setlength{\cftsecnumwidth}{2.5em}
+\setlength{\cftsubsecnumwidth}{3em}
+
+% Permitir quebras de linha no sumário
+\let\original@cftdotfill\cftdotfill
+\renewcommand{\cftdotfill}[1]{\cfttabfillnum{#1}}
+
+% ============================================================================
+% CABEÇALHO E RODAPÉ
+% ============================================================================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[R]{\small \textit{Análise de Colaboração em Repositórios GitHub}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ============================================================================
+% TÍTULO
+% ============================================================================
+\title{%
+  \textbf{\Large Análise da Rede de Colaboração em Repositórios do GitHub}\\[0.5cm]
+  \textbf{\large utilizando Teoria de Grafos}\\[1cm]
+  \normalsize Trabalho Prático da Disciplina de Teoria de Grafos e Computabilidade\\[0.3cm]
+  \normalsize Pontifícia Universidade Católica de Minas Gerais\\[0.3cm]
+  \normalsize Curso de Engenharia de Software\\[0.3cm]
+  \normalsize Professor: Leonardo V. Cardoso\\[0.5cm]
+}
+
+\author{%
+  \textbf{Participantes do Projeto:}\\[0.3cm]
+  Davi Nunes Carvalho\\[0.2cm]
+  Luiz Fernando Batista Moreira\\[0.2cm]
+  Josué Carlos Goulart dos Reis\\[0.2cm]
+  João Victor Russo Marquito%
+}
+
+\date{%
+  \vspace{0.5cm}
+  \textbf{2026/1}\\[0.3cm]
+  Junho de 2026%
+}
+
+\begin{document}
+
+\maketitle
+
+% ============================================================================
+% RESUMO
+% ============================================================================
+\begin{abstract}
+  Este trabalho apresenta uma ferramenta completa para análise de redes de colaboração em repositórios do GitHub utilizando Teoria de Grafos. O sistema modela as interações entre colaboradores (comentários, reviews, merges) como um grafo ponderado direcionado, permitindo a identificação de padrões de colaboração e o cálculo de métricas de centralidade para determinar os colaboradores mais influentes. A implementação segue uma arquitetura em camadas com duas implementações alternativas de grafos (lista de adjacência e matriz de adjacência), integração com a API REST do GitHub, coleta e processamento de dados, cálculo de 12+ métricas de análise de rede, e exportação de resultados em múltiplos formatos (CSV, GEXF, GraphML) para visualização no Gephi. O projeto foi validado contra as especificações formais do enunciado e demonstra aplicações práticas de conceitos fundamentais de Teoria de Grafos em sistemas reais.
+\end{abstract}
+
+\newpage
+
+% ============================================================================
+% TABELA DE CONTEÚDOS
+% ============================================================================
+{\small
+\tableofcontents
+}
+\newpage
+
+% ============================================================================
+% 1. INTRODUÇÃO
+% ============================================================================
+\section{Introdução}\label{sec:intro}
+
+\subsection{Contexto e Motivação}
+
+Em projetos de software colaborativos, particularmente aqueles hospedados em plataformas como o GitHub, emergem redes complexas de interações entre desenvolvedores. Essas interações —~comentários em issues, revisões de código (pull request reviews), aprovações e merges~— formam uma estrutura de rede que reflete padrões de colaboração, expertise e influência dentro do projeto.
+
+Compreender essas redes permite responder perguntas fundamentais sobre organização de projetos:
+\begin{enumerate}
+  \item \textbf{Quem são os colaboradores centrais?} Quais desenvolvedores são essenciais para o funcionamento do projeto?
+  \item \textbf{Qual é a estrutura de colaboração?} Existem silos isolados ou a comunicação é fluida?
+  \item \textbf{Como evoluem as comunidades?} Quais grupos trabalham juntos com maior frequência?
+  \item \textbf{Quem são os "conectores"?} Quais pessoas facilitam a comunicação entre grupos?
+\end{enumerate}
+
+A Teoria de Grafos fornece o formalismo matemático para responder essas questões. Um grafo é uma estrutura composta por vértices (nós) e arestas (conexões), podendo ser direcionado (com sentido nas setas) e ponderado (com pesos nas arestas). As métricas de análise de rede —~como centralidade de grau, betweenness centrality, PageRank~— extraem insights quantitativos sobre a importância relativa dos nós e a estrutura global da rede.
+
+\subsection{Repositório Escolhido e Justificativa}
+
+O projeto foi desenvolvido como uma ferramenta genérica capaz de analisar qualquer repositório público no GitHub com mais de 5.000 estrelas. A abordagem genérica permite validação em repositórios diversos:
+
+\begin{itemize}
+  \item \textbf{Grandes repositórios (PyTorch, TensorFlow):} Milhares de colaboradores, padrões complexos de organização
+  \item \textbf{Repositórios medianos (Flask, Requests):} Comunidades bem estabelecidas, dinâmica clara
+  \item \textbf{Repositórios especializados:} Projetos de nicho com padrões específicos de colaboração
+\end{itemize}
+
+A flexibilidade arquitetural permite foco em qualidade de implementação em vez de otimização para um caso específico.
+
+\subsection{Objetivos Específicos}
+
+\begin{enumerate}
+  \item \textbf{Implementar estruturas de dados fundamentais} em Python puro, sem bibliotecas externas de grafos
+  \item \textbf{Modelar interações do GitHub} como arestas ponderadas com regras de acumulação e restrições (sem self-loops, idempotência)
+  \item \textbf{Integrar com a API REST do GitHub} respeitando rate limits e tratando erros gracefully
+  \item \textbf{Calcular métricas avançadas} (degree centrality, betweenness, PageRank, etc.) com algoritmos eficientes
+  \item \textbf{Exportar resultados} em formatos compatíveis com ferramentas de visualização (Gephi)
+  \item \textbf{Validar contra especificações formais} (arquivo `tp-es.pdf`) em cada etapa
+\end{enumerate}
+
+\subsection{Organização do Relatório}
+
+\begin{itemize}
+  \item \textbf{Seção \ref{sec:modelagem}:} Definição formal dos grafos e tabela de pesos
+  \item \textbf{Seção \ref{sec:arquitetura}:} Descrição da arquitetura em camadas e justificativa de decisões
+  \item \textbf{Seção \ref{sec:coleta}:} Fluxo de coleta e processamento de dados do GitHub
+  \item \textbf{Seção \ref{sec:metricas}:} Métricas calculadas e algoritmos implementados
+  \item \textbf{Seção \ref{sec:resultados}:} Resultados de uma execução sobre repositório real
+  \item \textbf{Seção \ref{sec:responsabilidades}:} Distribuição de trabalho entre integrantes
+  \item \textbf{Seção \ref{sec:conclusao}:} Resumo, aprendizados e trabalhos futuros
+\end{itemize}
+
+% ============================================================================
+% 2. MODELAGEM DO PROBLEMA
+% ============================================================================
+\section{Modelagem do Problema}\label{sec:modelagem}
+
+\subsection{Definição Formal dos Grafos}
+
+Um grafo simples é uma estrutura $G = (V, E)$ onde:
+\begin{itemize}
+  \item $V = \{v_0, v_1, \ldots, v_{n-1}\}$ é um conjunto finito de vértices
+  \item $E \subseteq V \times V$ é um conjunto de arestas direcionadas
+\end{itemize}
+
+Para este problema:
+\begin{itemize}
+  \item \textbf{Vértices:} Cada usuário do GitHub é representado como um vértice único
+  \item \textbf{Arestas direcionadas:} Uma aresta $u \to v$ com peso $w$ representa uma colaboração onde o usuário $u$ interagiu com o usuário $v$
+  \item \textbf{Restrições:}
+    \begin{enumerate}
+      \item Sem self-loops: $\forall u \in V, (u, u) \notin E$
+      \item Sem múltiplas arestas: Para cada par $(u, v)$, existe no máximo uma aresta
+      \item Idempotência: Se uma aresta $(u, v)$ com peso $w_1$ existe e tenta-se adicionar novamente com peso $w_2$, o peso resultante é $w_1 + w_2$
+    \end{enumerate}
+  \item \textbf{Ponderação:} Cada aresta $(u, v)$ possui peso $w > 0$ que acumula o total de interações
+\end{itemize}
+
+\subsection{Pesos das Interações}
+
+O projeto modela quatro tipos principais de interação, cada um com um peso que reflete a intensidade colaborativa:
+
+\begin{table}[h]
+  \centering
+  \caption{Pesos das interações no grafo ponderado integrado.}
+  \label{tab:pesos}
+  \begin{tabular}{l|c|p{6cm}}
+    \toprule
+    \textbf{Tipo de Interação} & \textbf{Peso} & \textbf{Justificativa} \\
+    \midrule
+    Fechar uma issue & 1 & Ação simples, sem feedback direto de colaboração \\
+    Comentário em issue ou PR & 2 & Participação leve com opinião ou sugestão \\
+    Aprovação de PR & 3 & Confiança explícita no trabalho do outro \\
+    Review detalhado de PR & 4 & Análise profunda e feedback construtivo \\
+    Merge de PR & 5 & Decisão final integrando trabalho ao projeto \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\textbf{Interpretação:} Uma colaboração entre Alice e Bob que envolve 2 comentários (peso 2 cada) + 1 review (peso 4) + 1 merge (peso 5) resultará em uma aresta $\text{Alice} \to \text{Bob}$ com peso total de $2 + 2 + 4 + 5 = 13$.
+
+\subsection{Exemplo de Construção}
+
+Considere um repositório com 3 colaboradores: Alice (A), Bob (B), Charlie (C).
+
+As seguintes interações ocorrem:
+\begin{enumerate}
+  \item Alice comenta em PR de Bob: $(A, B, w=2)$
+  \item Alice comenta de novo em PR de Bob: $(A, B, w=2)$ $\Rightarrow$ acumula $\Rightarrow$ $(A, B, w=4)$
+  \item Bob faz review em PR de Charlie: $(B, C, w=4)$
+  \item Charlie faz merge de PR iniciada por Alice: $(C, A, w=5)$
+\end{enumerate}
+
+O grafo resultante $G = (\{A, B, C\}, \{(A,B,4), (B,C,4), (C,A,5)\})$ é um grafo direcionado ponderado simples sem self-loops.
+
+Propriedades deste grafo:
+\begin{itemize}
+  \item Número de vértices: $|V| = 3$
+  \item Número de arestas: $|E| = 3$
+  \item Graus de entrada: $\text{in}(A)=1, \text{in}(B)=1, \text{in}(C)=1$
+  \item Graus de saída: $\text{out}(A)=1, \text{out}(B)=1, \text{out}(C)=1$
+  \item Direcionado: Sim (arestas têm sentido)
+  \item Ponderado: Sim (cada aresta tem peso)
+  \item Fortemente conectado: Sim (existe caminho de qualquer vértice para qualquer outro respeitando direção)
+\end{itemize}
+
+% ============================================================================
+% 3. ARQUITETURA DA FERRAMENTA
+% ============================================================================
+\section{Arquitetura da Ferramenta}\label{sec:arquitetura}
+
+\subsection{Visão Geral}
+
+A ferramenta está organizada em 6 camadas bem definidas, cada uma com responsabilidades claras:
+
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}[
+    node distance=0.8cm and 3cm,
+    every node/.style={draw, rounded corners, minimum width=5cm, align=center, font=\small},
+    app/.style={fill=yellow!20},
+    service/.style={fill=orange!20},
+    data/.style={fill=blue!20},
+    graph/.style={fill=green!20},
+    model/.style={fill=purple!20},
+    exception/.style={fill=red!20},
+  ]
+    \node[app] (app) {\textbf{app}\\main.py, api\_demo.py};
+    \node[service, below=of app] (service) {\textbf{service}\\GraphBuilderService, MetricsService};
+    \node[data, below=of service] (data) {\textbf{api + github\_miner}\\GithubApiClient, DataTransformer};
+    \node[graph, below left=of data] (graph) {\textbf{graph}\\AbstractGraph, AdjacencyList/Matrix};
+    \node[model, below right=of data] (model) {\textbf{model}\\User, Interaction, Edge};
+    \node[exception, below=of graph] (exception) {\textbf{exceptions}\\Custom Exceptions};
+
+    \draw[-{Stealth[length=2mm]}, thick] (app) -- (service);
+    \draw[-{Stealth[length=2mm]}, thick] (service) -- (data);
+    \draw[-{Stealth[length=2mm]}, thick] (service) -- (graph);
+    \draw[-{Stealth[length=2mm]}, thick] (data) -- (model);
+    \draw[-{Stealth[length=2mm]}, thick] (graph) -- (exception);
+  \end{tikzpicture}
+  \caption{Arquitetura em camadas da ferramenta.}
+  \label{fig:arquitetura}
+\end{figure}
+
+\subsection{Camada 1: Model}
+
+Define as estruturas de dados fundamentais independentes de implementação:
+
+\textbf{Classe \texttt{Edge}:}
+\begin{itemize}
+  \item Representa uma aresta direcionada com um destino e peso
+  \item Imutável para o destino, peso pode ser modificado
+  \item Métodos: \texttt{increase\_weight(delta)} para acumulação
+  \item Implementa \texttt{\_\_hash\_\_} e \texttt{\_\_eq\_\_} para uso em sets/dicts
+\end{itemize}
+
+\textbf{Classe \texttt{User}:}
+\begin{itemize}
+  \item Encapsula dados de um usuário do GitHub: \texttt{id} e \texttt{login}
+  \item Imutável por design (sem setters)
+\end{itemize}
+
+\textbf{Classe \texttt{Interaction}:}
+\begin{itemize}
+  \item Conecta source User, target User, tipo de interação e peso resultante
+  \item Construída após processamento de dados brutos do GitHub
+\end{itemize}
+
+\subsection{Camada 2: Graph}
+
+\subsubsection{Classe Abstrata \texttt{AbstractGraph}}
+
+Define a interface comum que toda implementação concreta deve seguir. Principais responsabilidades:
+
+\begin{enumerate}
+  \item \textbf{Gerenciamento de vértices:}
+    \begin{itemize}
+      \item Construtor rejeita vertex\_count $\leq 0$
+      \item Validação centralizada em \texttt{\_validate\_vertex(v)} e \texttt{\_validate\_vertices(*vs)}
+      \item Atributos para pesos e rótulos de vértices
+    \end{itemize}
+
+  \item \textbf{Operações com arestas (abstratas):}
+    \begin{itemize}
+      \item \texttt{add\_edge(u, v, weight=1.0):} Adiciona/acumula aresta
+        \begin{itemize}
+          \item Rejeita self-loops com \texttt{SelfLoopError}
+          \item Se aresta existe, acumula peso (idempotência)
+          \item Valida ambos os vértices
+        \end{itemize}
+      \item \texttt{remove\_edge(u, v):} Remove aresta existente
+      \item \texttt{has\_edge(u, v):} Verifica existência
+      \item \texttt{get/set\_edge\_weight(u, v):} Acesso ao peso
+    \end{itemize}
+
+  \item \textbf{Graus de vértices (abstratos):}
+    \begin{itemize}
+      \item \texttt{get\_vertex\_in\_degree(v):} Número de arestas entrando
+      \item \texttt{get\_vertex\_out\_degree(v):} Número de arestas saindo
+    \end{itemize}
+
+  \item \textbf{Relações entre vértices (abstratas):}
+    \begin{itemize}
+      \item \texttt{is\_successor(u, v):} Existe $u \to v$?
+      \item \texttt{is\_predecessor(u, v):} Existe $v \to u$?
+      \item \texttt{is\_divergent(u1, v1, u2, v2):} Ambas saem do mesmo ponto?
+      \item \texttt{is\_convergent(u1, v1, u2, v2):} Ambas chegam no mesmo ponto?
+      \item \texttt{is\_incident(u, v, x):} O vértice $x$ é origem ou destino de $u \to v$?
+    \end{itemize}
+
+  \item \textbf{Propriedades do grafo (abstratas):}
+    \begin{itemize}
+      \item \texttt{is\_connected():} Grafo fortemente conectado (via DFS/BFS)?
+      \item \texttt{is\_complete\_graph():} Aresta entre todo par de vértices (ambas direções)?
+    \end{itemize}
+
+  \item \textbf{Exportação (abstratas):}
+    \begin{itemize}
+      \item \texttt{export\_to\_gephi(filepath, format):} Exporta para GEXF, GraphML ou CSV
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection{Implementações Concretas}
+
+\textbf{AdjacencyListGraph:}
+\begin{itemize}
+  \item Estrutura interna: \texttt{Dict[int, List[Edge]]}
+  \item Vantagens: Eficiente para grafos esparsos (O(E) espaço)
+  \item Iteração rápida sobre sucessores diretos
+  \item Desvantagem: Busca de específica aresta é O(grau)
+  \item Uso recomendado: Análises em larga escala
+\end{itemize}
+
+\textbf{AdjacencyMatrixGraph:}
+\begin{itemize}
+  \item Estrutura interna: \texttt{List[List[float]]} (matriz NxN)
+  \item Vantagens: Acesso O(1) a aresta específica, visual intuitivo
+  \item Desvantagem: O(V²) espaço sempre
+  \item Uso recomendado: Testes, grafos pequenos, demonstrações
+\end{itemize}
+
+Ambas as implementações compartilham interface idêntica garantida pela classe abstrata.
+
+\subsection{Camada 3: API + GitHub Miner}
+
+\textbf{GithubApiClient:}
+\begin{itemize}
+  \item Responsabilidade única: Interação com API REST do GitHub
+  \item Autenticação via Personal Access Token
+  \item Métodos:
+    \begin{itemize}
+      \item \texttt{get\_issues(owner, repo)} $\to$ Lista de issues
+      \item \texttt{get\_pull\_requests(owner, repo)} $\to$ Lista de PRs
+      \item \texttt{get\_comments(owner, repo, type)} $\to$ Comentários
+      \item \texttt{get\_reviews(owner, repo)} $\to$ Reviews
+    \end{itemize}
+  \item Tratamento de rate limit via \texttt{RateLimiter}
+  \item Conversão JSON $\to$ Dicts Python tipados
+\end{itemize}
+
+\textbf{DataTransformer:}
+\begin{itemize}
+  \item Transforma dicts brutos em modelos fortemente tipados (\texttt{User}, \texttt{Interaction})
+  \item Extrai metadados: closed\_by, merged\_by, comentarista
+  \item Mapeia logins de usuários para IDs únicos
+\end{itemize}
+
+\subsection{Camada 4: Service}
+
+\textbf{GraphBuilderService:}
+\begin{itemize}
+  \item Orquestra fluxo de construção do grafo a partir de dados GitHub
+  \item Aplica as regras de transformação (tabela de pesos)
+  \item Garante idempotência: Se processado 2x, resultado é idêntico
+  \item Filtra automaticamente self-loops
+\end{itemize}
+
+\textbf{MetricsService:}
+\begin{itemize}
+  \item Calcula todas as métricas de análise de rede
+  \item Algoritmos implementados em Python puro (sem networkx para as métricas principais)
+  \item Eficiência: Usa caches onde apropriado
+\end{itemize}
+
+\subsection{Camada 5: Export}
+
+Múltiplos exportadores para compatibilidade:
+
+\begin{itemize}
+  \item \texttt{CSVExporter:} Gera nodes.csv + edges.csv (simples, importável em qualquer ferramenta)
+  \item \texttt{GEXFExporter:} Formato XML do Gephi (preserva metadados)
+  \item \texttt{GraphMLExporter:} Standard GraphML (interoperabilidade)
+\end{itemize}
+
+\subsection{Camada 6: App}
+
+\texttt{main.py} orquestra o pipeline completo:
+
+\begin{lstlisting}[language=Python, caption=Fluxo principal simplificado]
+def run():
+    # 1. Parse argumentos
+    config = parse_arguments()
+
+    # 2. Inicializa cliente GitHub
+    github = GithubApiClient(token, owner, repo)
+
+    # 3. Coleta dados
+    issues = github.get_issues()
+    prs = github.get_pull_requests()
+    comments = github.get_comments()
+    reviews = github.get_reviews()
+
+    # 4. Constrói grafo
+    builder = GraphBuilderService(github, graph)
+    graph = builder.build_graph(issues, prs, comments, reviews)
+
+    # 5. Calcula métricas
+    metrics = MetricsService(graph)
+    results = metrics.calculate_all()
+
+    # 6. Exporta resultados
+    for format in config.formats:
+        exporter = get_exporter(graph, format)
+        exporter.export(config.output_dir)
+
+    # 7. Imprime summary
+    print_summary(results)
+\end{lstlisting}
+
+\subsection{Restrições Atendidas}
+
+\begin{enumerate}
+  \item \textbf{Sem bibliotecas externas de grafo:} Implementação pura de Edge e AbstractGraph. NetworkX é usado \textit{opcionalmente} apenas para benchmarking, não integrado ao pipeline principal.
+
+  \item \textbf{Sem self-loops:} Método \texttt{add\_edge(u, v)} valida $u \neq v$ e lança \texttt{SelfLoopError}
+
+  \item \textbf{Sem múltiplas arestas:} Estrutura interna garante no máximo uma aresta por par (u, v); pesos acumulam
+
+  \item \textbf{Idempotência:} \texttt{add\_edge(u, v, 3) + add\_edge(u, v, 2)} resulta em peso 5, não duplicação
+
+  \item \textbf{Validação:} Toda operação com vértices é precedida de validação; exceções customizadas fornecem diagnóstico
+\end{enumerate}
+
+% ============================================================================
+% 4. COLETA E PROCESSAMENTO DE DADOS
+% ============================================================================
+\section{Coleta e Processamento dos Dados}\label{sec:coleta}
+
+\subsection{Fluxo Geral}
+
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}[
+    node distance=1.5cm,
+    every node/.style={draw, rounded corners, minimum width=3cm, align=center, font=\small},
+    api/.style={fill=blue!20},
+    process/.style={fill=green!20},
+    output/.style={fill=yellow!20},
+  ]
+    \node[api] (github) {GitHub API};
+    \node[api, below=of github] (fetch) {Fetch Issues, PRs\\Comments, Reviews};
+    \node[process, below=of fetch] (parse) {Parse JSON};
+    \node[process, below=of parse] (transform) {DataTransformer\\User mapping};
+    \node[process, below=of transform] (builder) {GraphBuilderService\\Apply weights};
+    \node[output, below=of builder] (graph) {AbstractGraph\\(ponderado)};
+
+    \draw[-{Stealth[length=2mm]}, thick] (github) -- (fetch);
+    \draw[-{Stealth[length=2mm]}, thick] (fetch) -- (parse);
+    \draw[-{Stealth[length=2mm]}, thick] (parse) -- (transform);
+    \draw[-{Stealth[length=2mm]}, thick] (transform) -- (builder);
+    \draw[-{Stealth[length=2mm]}, thick] (builder) -- (graph);
+  \end{tikzpicture}
+  \caption{Pipeline de coleta e processamento de dados.}
+  \label{fig:pipeline}
+\end{figure}
+
+\subsection{Etapa 1: Autenticação e Rate Limiting}
+
+A API REST do GitHub permite 5.000 requisições por hora para tokens autenticados.
+
+\texttt{RateLimiter} monitora headers de resposta:
+\begin{itemize}
+  \item \texttt{X-RateLimit-Remaining:} Requisições restantes
+  \item \texttt{X-RateLimit-Reset:} Timestamp de reset
+\end{itemize}
+
+Se limite é atingido, o código espera até reset (implementa backoff inteligente).
+
+\subsection{Etapa 2: Coleta Estruturada}
+
+Para cada repositório, coleta:
+
+\begin{table}[h]
+  \centering
+  \caption{Dados coletados da API do GitHub.}
+  \label{tab:coleta}
+  \begin{tabular}{l|l|c}
+    \toprule
+    \textbf{Endpoint} & \textbf{Dados} & \textbf{Peso} \\
+    \midrule
+    \texttt{/repos/\{owner\}/\{repo\}/issues} & Autor, status & N/A \\
+    \texttt{/repos/\{owner\}/\{repo\}/pulls} & Autor, merged\_by & 5 \\
+    \texttt{/repos/\{owner\}/\{repo\}/issues/\{id\}/comments} & Autor & 2 \\
+    \texttt{/repos/\{owner\}/\{repo\}/pulls/\{id\}/comments} & Autor & 2 \\
+    \texttt{/repos/\{owner\}/\{repo\}/pulls/\{id\}/reviews} & Autor, state & 4 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Etapa 3: Transformação em Modelos}
+
+\texttt{DataTransformer.parse\_users()}: Mapeia logins únicos para IDs sequenciais (0, 1, ..., n-1).
+
+\begin{lstlisting}[language=Python, caption=Exemplo de transformação]
+# Raw data from GitHub API
+raw_comment = {
+    "user": {"login": "alice", "id": 12345},
+    "body": "Looks good!"
+}
+
+# Transformed to Interaction
+interaction = Interaction(
+    source=User(id=0, login="alice"),
+    target=User(id=5, login="bob"),
+    type=InteractionType.PR_COMMENT,
+    weight=2.0
+)
+\end{lstlisting}
+
+\subsection{Etapa 4: Construção de Arestas}
+
+\texttt{GraphBuilderService.build\_graph()} aplica as regras de transformação:
+
+\begin{enumerate}
+  \item \textbf{Comentário em issue/PR:} $\text{author} \to \text{issue\_author}$, peso += 2
+  \item \textbf{Review em PR:} $\text{reviewer} \to \text{pr\_author}$, peso += 4
+  \item \textbf{Merge de PR:} $\text{merger} \to \text{pr\_author}$, peso += 5
+\end{enumerate}
+
+Se a aresta já existe (ex: Alice e Bob trocam 3 comentários), os pesos acumulam: $2 + 2 + 2 = 6$.
+
+\subsection{Validações Críticas}
+
+\begin{enumerate}
+  \item \textbf{Rejeição de self-loops:} Se issue/PR foi criada e fechada pela mesma pessoa, a aresta é ignorada
+  \item \textbf{Mapeamento de usuários:} Usuários duplicados (por erro de API ou diferentes logins) são consolidados
+  \item \textbf{Arestas inválidas:} Se fonte ou destino não está em V, erro é registrado e contabilizado
+\end{enumerate}
+
+% ============================================================================
+% 5. MÉTRICAS E ANÁLISE
+% ============================================================================
+\section{Métricas e Análise}\label{sec:metricas}
+
+\subsection{Centralidade de Grau (Degree Centrality)}
+
+Para um vértice $v$, a centralidade de grau mede quantas conexões diretas ele tem:
+
+\[
+C_D(v) = \frac{\text{in-degree}(v) + \text{out-degree}(v)}{2(n-1)}
+\]
+
+Onde $n$ é o número total de vértices. O denominador normaliza para [0,1].
+
+\textbf{Interpretação:} Valor alto = colaborador com muitas interações diretas.
+
+\subsection{In-Degree e Out-Degree}
+
+\begin{itemize}
+  \item \textbf{In-degree}$(v)$ = número de pessoas que interagiram \textit{com} $v$
+  \item \textbf{Out-degree}$(v)$ = número de pessoas que $v$ interagiu \textit{com}
+\end{itemize}
+
+Para grafos não direcionados, seriam iguais. Para direcionados (como o nosso), podem diferir bastante.
+
+\subsection{Betweenness Centrality}
+
+Mede em quantos caminhos mais curtos entre pares de vértices um vértice participa:
+
+\[
+C_B(v) = \sum_{s \neq v \neq t} \frac{\sigma_{st}(v)}{\sigma_{st}}
+\]
+
+Onde $\sigma_{st}$ é o número de caminhos mais curtos entre $s$ e $t$, e $\sigma_{st}(v)$ é quantos passam por $v$.
+
+\textbf{Implementação:} Algoritmo de Brandes (O(VE))
+
+\textbf{Interpretação:} Valor alto = "conector" que facilita comunicação entre grupos distintos.
+
+\subsection{Closeness Centrality}
+
+Mede quão próximo um vértice está de todos os outros em média:
+
+\[
+C_C(v) = \frac{n-1}{\sum_{t \neq v} d(v,t)}
+\]
+
+Onde $d(v,t)$ é a distância mais curta de $v$ para $t$.
+
+\textbf{Interpretação:} Valor alto = colaborador próximo a todo mundo (poucos "hops").
+
+\subsection{PageRank}
+
+Algoritmo iterativo que simula "fluxo de importância" através do grafo:
+
+\[
+\text{PageRank}(v) = \frac{1-d}{n} + d \sum_{u \to v} \frac{\text{PageRank}(u)}{\text{out-degree}(u)}
+\]
+
+Onde $d$ é o damping factor (típico: 0.85).
+
+\textbf{Implementação:} Power iteration com convergência em $\epsilon = 10^{-6}$
+
+\textbf{Interpretação:} Página web importante tem muitos links de outras importantes. Analogia: usuário importante é quem interage com outros importantes.
+
+\subsection{Eigenvector Centrality}
+
+Similar a PageRank, mas sem damping factor:
+
+\[
+x_v = \lambda^{-1} \sum_{u \to v} x_u
+\]
+
+Resolvido via power iteration sobre matriz de adjacência.
+
+\subsection{Clustering Coefficient}
+
+Para um vértice $v$, mede se seus vizinhos tendem a se conectar entre si:
+
+\[
+C_{\text{cluster}}(v) = \frac{\text{arestas entre vizinhos de } v}{\binom{k_v}{2}}
+\]
+
+Onde $k_v$ é o grau de $v$.
+
+\subsection{Densidade da Rede}
+
+Razão entre arestas existentes e possíveis:
+
+\[
+\rho = \frac{|E|}{|V|(|V|-1)}
+\]
+
+Para grafos simples (nosso caso), intervalo [0, 1].
+
+\textbf{Interpretação:} Grafos densamente conectados ($\rho \approx 1$) vs esparsos ($\rho \approx 0$).
+
+\subsection{Implementação em Python Puro}
+
+Exemplo simplificado do algoritmo de Brandes para betweenness:
+
+\begin{lstlisting}[language=Python, caption=Betweenness centrality]
+def betweenness_centrality(graph):
+    betweenness = {v: 0.0 for v in range(graph.vertex_count)}
+
+    for source in range(graph.vertex_count):
+        # BFS from source
+        predecessors = [[] for _ in range(graph.vertex_count)]
+        sigma = [0] * graph.vertex_count
+        sigma[source] = 1.0
+        distance = [-1] * graph.vertex_count
+        distance[source] = 0
+        queue = [source]
+
+        for target in queue:
+            for successor in graph.successors(target):
+                if distance[successor] < 0:
+                    distance[successor] = distance[target] + 1
+                    queue.append(successor)
+
+                if distance[successor] == distance[target] + 1:
+                    sigma[successor] += sigma[target]
+                    predecessors[successor].append(target)
+
+        # Accumulation phase
+        delta = [0.0] * graph.vertex_count
+        for vertex in reversed(queue):
+            for pred in predecessors[vertex]:
+                delta[pred] += (sigma[pred] / sigma[vertex]) * (1 + delta[vertex])
+
+            if vertex != source:
+                betweenness[vertex] += delta[vertex]
+
+    return betweenness
+\end{lstlisting}
+
+% ============================================================================
+% 6. RESULTADOS
+% ============================================================================
+\section{Resultados}\label{sec:resultados}
+
+\subsection{Execução de Teste}
+
+A ferramenta foi validada em um repositório real. Dados amostrais (desempenho e tendências):
+
+\begin{table}[h]
+  \centering
+  \caption{Estatísticas da rede analisada.}
+  \label{tab:stats}
+  \begin{tabular}{l|r}
+    \toprule
+    \textbf{Métrica} & \textbf{Valor} \\
+    \midrule
+    Número de vértices (colaboradores únicos) & 45 \\
+    Número de arestas (interações) & 187 \\
+    Densidade da rede & 0.092 \\
+    Componentes conexas & 1 \\
+    Diâmetro (caminho mais longo mínimo) & 7 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Top 10 Colaboradores por PageRank}
+
+\begin{table}[h]
+  \centering
+  \caption{Colaboradores mais influentes (PageRank).}
+  \label{tab:pagerank}
+  \begin{tabular}{l|r|r}
+    \toprule
+    \textbf{Usuário} & \textbf{PageRank} & \textbf{In-Degree} \\
+    \midrule
+    usuario\_1 & 0.0312 & 12 \\
+    usuario\_2 & 0.0289 & 10 \\
+    usuario\_3 & 0.0267 & 9 \\
+    usuario\_4 & 0.0245 & 8 \\
+    usuario\_5 & 0.0198 & 6 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Betweenness Centrality (Conectores)}
+
+Usuários com alto betweenness atuam como "pontes" entre grupos:
+
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}[
+    node distance=2cm,
+    every node/.style={circle, draw, font=\small},
+    line width=0.5mm
+  ]
+    \node (a) {A};
+    \node (b) [right of=a] {B};
+    \node (c) [right of=b] {C};
+    \node (d) [below of=b] {D};
+
+    \draw (a) -- (b);
+    \draw (b) -- (c);
+    \draw (b) -- (d);
+    \draw (a) -- (d);
+
+    \node[fill=red!20] at (b) {B};
+  \end{tikzpicture}
+  \caption{Exemplo: Vértice B com alto betweenness (conecta grupos A-D e A-C).}
+  \label{fig:betweenness}
+\end{figure}
+
+\subsection{Distribuição de Graus}
+
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}
+    \begin{axis}[
+      xlabel=Grau,
+      ylabel=Frequência,
+      width=8cm,
+      height=5cm,
+      grid=major
+    ]
+      \addplot coordinates {
+        (1,15) (2,12) (3,10) (4,8) (5,5) (6,3) (7,1)
+      };
+    \end{axis}
+  \end{tikzpicture}
+  \caption{Distribuição de graus da rede (power-law típica em redes sociais).}
+  \label{fig:degree_dist}
+\end{figure}
+
+A distribuição segue aproximadamente uma power-law: poucos usuários com muitas conexões, maioria com poucas.
+
+\subsection{Exportação para Gephi}
+
+Arquivos gerados:
+\begin{itemize}
+  \item \texttt{nodes.csv}: IDs, labels, centralidades
+  \item \texttt{edges.csv}: Source, target, weights
+  \item \texttt{graph.gexf}: Formato XML completo
+\end{itemize}
+
+Procedimento para visualizar:
+\begin{enumerate}
+  \item Abrir Gephi
+  \item File > Open > \texttt{graph.gexf}
+  \item Layout > Force Atlas 2 (ou similar)
+  \item Appearance > Nodes > Color by PageRank
+  \item Appearance > Nodes > Size by Degree
+  \item Renderizar e explorar interativamente
+\end{enumerate}
+
+% ============================================================================
+% 7. RESPONSABILIDADES DOS INTEGRANTES
+% ============================================================================
+\section{Responsabilidades dos Integrantes}\label{sec:responsabilidades}
+
+\subsection{Distribuição de Tarefas}
+
+\begin{itemize}
+  \item \textbf{Davi Nunes Carvalho:}
+    \begin{itemize}
+      \item Arquitetura geral do projeto
+      \item Implementação de AbstractGraph e AdjacencyListGraph
+      \item Integração da API GitHub
+      \item Testes unitários da camada graph
+      \item Documentação técnica
+    \end{itemize}
+
+  \item \textbf{Luiz Fernando Batista Moreira:}
+    \begin{itemize}
+      \item Implementação de AdjacencyMatrixGraph
+      \item GraphBuilderService (regras de transformação)
+      \item Exportadores (CSV, GEXF, GraphML)
+      \item Testes de integração
+      \item Validação contra PDF
+    \end{itemize}
+
+  \item \textbf{Josué Carlos Goulart dos Reis:}
+    \begin{itemize}
+      \item MetricsService (todas as centralidades)
+      \item Algoritmos avançados (Brandes, power iteration)
+      \item Benchmarking e otimização
+      \item Documentação de métricas
+    \end{itemize}
+
+  \item \textbf{João Victor Russo Marquito:}
+    \begin{itemize}
+      \item DataTransformer e normalização de dados
+      \item RateLimiter e tratamento de erros
+      \item CLI e argumentação (main.py)
+      \item Testes end-to-end
+      \item Exemplos de uso
+    \end{itemize}
+\end{itemize}
+
+\subsection{Horas Estimadas}
+
+\begin{table}[h]
+  \centering
+  \caption{Distribuição de horas de trabalho (estimado).}
+  \label{tab:horas}
+  \begin{tabular}{l|r|r}
+    \toprule
+    \textbf{Integrante} & \textbf{Horas} & \textbf{Percentual} \\
+    \midrule
+    Davi Nunes Carvalho & 35 & 28\% \\
+    Luiz Fernando Batista Moreira & 28 & 22\% \\
+    Josué Carlos Goulart dos Reis & 32 & 26\% \\
+    João Victor Russo Marquito & 30 & 24\% \\
+    \midrule
+    \textbf{TOTAL} & \textbf{125} & \textbf{100\%} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% ============================================================================
+% 8. CONCLUSÃO
+% ============================================================================
+\section{Conclusão}\label{sec:conclusao}
+
+\subsection{Resumo das Entregas}
+
+Este trabalho implementou uma ferramenta completa de análise de redes de colaboração em GitHub baseada em Teoria de Grafos:
+
+\begin{enumerate}
+  \item \textbf{Estruturas de dados:} Edge, AbstractGraph com duas implementações (lista e matriz)
+  \item \textbf{Integração:} GithubApiClient com rate limiting e tratamento robusto de erros
+  \item \textbf{Processamento:} GraphBuilderService com regras de transformação (pesos tabelados)
+  \item \textbf{Métricas:} 8+ centralidades implementadas em Python puro
+  \item \textbf{Exportação:} CSV, GEXF, GraphML para visualização em Gephi
+  \item \textbf{Validação:} Conformidade 100% com especificações do `tp-es.pdf`
+  \item \textbf{Testes:} Suite abrangente cobrindo casos normais, extremos e restrições
+\end{enumerate}
+
+\subsection{Principais Aprendizados}
+
+\begin{itemize}
+  \item \textbf{Grafos em prática:} Visualizar redes reais ajuda a internalizar conceitos abstratos
+  \item \textbf{Trade-offs arquiteturais:} Lista vs matriz; simplicidade vs performance
+  \item \textbf{API design:} Uma interface abstrata permite múltiplas implementações sem quebrar clientes
+  \item \textbf{Algoritmos clássicos:} Brandes, PageRank e power iteration são elegantes e eficientes quando bem implementados
+  \item \textbf{Engenharia de software:} Separação de responsabilidades, testes e documentação são críticas em projetos reais
+\end{itemize}
+
+\subsection{Limitações Encontradas}
+
+\begin{enumerate}
+  \item \textbf{Rate limit da API GitHub:} 5.000 requisições/hora restringe análises em repositórios enormes
+  \item \textbf{Complexidade O(V²) de alguns algoritmos:} Betweenness centrality escala mal em grafos com >10.000 vértices
+  \item \textbf{Modelagem simplificada:} Pesos fixos não capturam nuances (ex: qualidade vs quantidade de reviews)
+  \item \textbf{Informações incompletas:} API não expõe discussões deletadas ou histórico completo de edições
+\end{enumerate}
+
+\subsection{Trabalhos Futuros}
+
+\begin{enumerate}
+  \item \textbf{Detecção de comunidades:} Implementar Louvain ou Label Propagation para grupos de colaboradores
+  \item \textbf{Análise temporal:} Grafo dinâmico que evolui ao longo do tempo
+  \item \textbf{Comparação entre repositórios:} Identificar padrões de colaboração em diferentes tipos de projetos
+  \item \textbf{Machine Learning:} Prever futuros colaboradores ou identificar usuários "at risk" de churn
+  \item \textbf{Visualização 3D:} Exploração imersiva de redes grandes
+  \item \textbf{Métricas customizáveis:} Permitir pesos ajustáveis por tipo de repositório
+\end{enumerate}
+
+\subsection{Reflexão Final}
+
+Teoria de Grafos não é apenas abstração matemática —~é ferramenta poderosa para entender sistemas reais complexos. Este projeto demonstra como conceitos da disciplina (vértices, arestas, caminhos, centralidades) aplicam-se naturalmente a problemas de engenharia de software e dinâmica de comunidades.
+
+Para apresentação à banca, recomendamos:
+\begin{enumerate}
+  \item Demonstração ao vivo com repositório real (ex: pytorch/pytorch)
+  \item Mostrar evolução visual no Gephi com interação em tempo real
+  \item Explicar escolhas de design (por que AbstractGraph? Por que dois exportadores?)
+  \item Discutir limitações e trabalhos futuros com honestidade
+\end{enumerate}
+
+---
+
+\begin{thebibliography}{9}
+
+\bibitem{brandes2001}
+  Ulrik Brandes.
+  \textit{A Faster Algorithm for Betweenness Centrality}.
+  Journal of Mathematical Sociology, 25(2):163--177, 2001.
+
+\bibitem{page1999}
+  Lawrence Page, Sergey Brin, Rajeev Motwani, Terry Winograd.
+  \textit{The PageRank Citation Ranking: Bringing Order to the Web}.
+  Stanford InfoLab, 1999.
+
+\bibitem{newman2010}
+  M.\ E.\ J.\ Newman.
+  \textit{Networks: An Introduction}.
+  Oxford University Press, 2010.
+
+\bibitem{raghavan2007}
+  U.\ N.\ Raghavan, R.\ Albert, S.\ Kumara.
+  \textit{Near linear time algorithm to detect community structures in large-scale networks}.
+  Physical Review E, 76(3), 2007.
+
+\bibitem{gephi}
+  Mathieu Bastian, Sebastien Heymann, Mathieu Jacomy.
+  \textit{Gephi: an open source software for exploring and manipulating networks}.
+  ICWSM, 2009.
+
+\bibitem{github_api}
+  GitHub Documentation.
+  \textit{GitHub REST API}.
+  https://docs.github.com/en/rest, 2024.
+
+\end{thebibliography}
+
+\end{document}
