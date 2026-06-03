@@ -17,9 +17,23 @@ from ..core.graph import AbstractGraph, AdjacencyListGraph, AdjacencyMatrixGraph
 from ..exceptions.mining_exceptions import GithubMiningError
 
 
-# Pesos definidos pelo PDF (Etapa 1). Centralizados para que a
-# refatoração e o relatório usem o mesmo lugar.
-WEIGHT_COMMENT = 2.0
+# Pesos definidos pelo PDF (Etapa 1). Interpretação literal do enunciado:
+#   "Comentário em issue ou pull request: peso 2"
+#       → todo comentário em PR alheio recebe peso 2.
+#   "Abertura de issue comentada por outro usuário: peso 3"
+#       → comentário em ISSUE alheia recebe peso 3 (engajamento com a issue
+#         que o autor abriu vale mais do que comentar num PR já em revisão).
+#   "Revisão/aprovação de pull request: peso 4"
+#   "Merge de pull request: peso 5"
+#   "Fechamento de issue por outro usuário"  → peso 3 (mesma força do item
+#         "abertura de issue comentada por outro" por simetria de impacto
+#         sobre o autor da issue).
+#
+# WEIGHT_COMMENT é mantido como alias do peso de PR para compatibilidade
+# com testes antigos e com os aliases build_issues_graph/build_pull_requests_graph.
+WEIGHT_COMMENT_PR = 2.0
+WEIGHT_COMMENT_ISSUE = 3.0
+WEIGHT_COMMENT = WEIGHT_COMMENT_PR  # alias compat
 WEIGHT_ISSUE_CLOSE = 3.0
 WEIGHT_REVIEW = 4.0
 WEIGHT_MERGE = 5.0
@@ -69,10 +83,13 @@ class GraphBuilderService:
 
     @staticmethod
     def _iter_comment_edges(data: CollaborationGraph):
-        """Gera (autor_comentario, autor_da_issue_ou_pr) por comentário.
+        """Gera (autor_comentario, autor_do_artefato, kind) por comentário.
 
-        Comentário em issue/PR: a aresta vai do comentarista para o autor
-        do artefato comentado.
+        kind ∈ {"issue", "pr"} permite ao chamador atribuir pesos distintos
+        no grafo integrado (PDF: issue alheia=3, PR alheio=2).
+        No Grafo 1 (build_comments_graph) o kind é ignorado e todos viram
+        a mesma aresta sem peso específico — o Grafo 1 apenas registra
+        a relação binária "comentou em algo de".
         """
         issue_author = {i.number: i.author for i in data.issues if i.author}
         pr_author = {p.number: p.author for p in data.pull_requests if p.author}
@@ -80,9 +97,9 @@ class GraphBuilderService:
             if not c.author:
                 continue
             if c.issue_number and c.issue_number in issue_author:
-                yield c.author, issue_author[c.issue_number]
+                yield c.author, issue_author[c.issue_number], "issue"
             elif c.pr_number and c.pr_number in pr_author:
-                yield c.author, pr_author[c.pr_number]
+                yield c.author, pr_author[c.pr_number], "pr"
 
     @staticmethod
     def _iter_issue_close_edges(data: CollaborationGraph):
@@ -110,10 +127,15 @@ class GraphBuilderService:
     # ---------- API exigida pelo enunciado ----------
 
     def build_comments_graph(self, data: CollaborationGraph) -> AbstractGraph:
-        """Grafo 1: comentários em issues ou pull requests."""
+        """Grafo 1: comentários em issues ou pull requests.
+
+        Aqui o grafo é apenas "por tipo de relação" (sem pesos diferentes
+        entre issue e PR); usamos WEIGHT_COMMENT_PR como peso unitário
+        de cada interação para que addEdge acumule corretamente.
+        """
         graph, idx = self._new_labelled_graph(data)
-        for src, dst in self._iter_comment_edges(data):
-            self._safe_add(graph, idx.get(src.id), idx.get(dst.id), WEIGHT_COMMENT)
+        for src, dst, _kind in self._iter_comment_edges(data):
+            self._safe_add(graph, idx.get(src.id), idx.get(dst.id), WEIGHT_COMMENT_PR)
         return graph
 
     def build_issue_close_graph(self, data: CollaborationGraph) -> AbstractGraph:
@@ -133,10 +155,19 @@ class GraphBuilderService:
         return graph
 
     def build_integrated_graph(self, data: CollaborationGraph) -> AbstractGraph:
-        """Grafo integrado: combina todas as interações com pesos do PDF."""
+        """Grafo integrado: combina todas as interações com pesos do PDF.
+
+        Pesos:
+            comentário em PR alheio       → 2
+            comentário em issue alheia    → 3 (Interpretação A do enunciado)
+            fechamento de issue alheia    → 3
+            review/aprovação de PR        → 4
+            merge de PR                   → 5
+        """
         graph, idx = self._new_labelled_graph(data)
-        for src, dst in self._iter_comment_edges(data):
-            self._safe_add(graph, idx.get(src.id), idx.get(dst.id), WEIGHT_COMMENT)
+        for src, dst, kind in self._iter_comment_edges(data):
+            w = WEIGHT_COMMENT_ISSUE if kind == "issue" else WEIGHT_COMMENT_PR
+            self._safe_add(graph, idx.get(src.id), idx.get(dst.id), w)
         for closer, author in self._iter_issue_close_edges(data):
             self._safe_add(graph, idx.get(closer.id), idx.get(author.id), WEIGHT_ISSUE_CLOSE)
         for reviewer, author in self._iter_review_edges(data):

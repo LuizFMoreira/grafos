@@ -418,14 +418,14 @@ class TestPdfAlignedGraphs:
 
     def test_integrated_graph_accumulates_weights(self, data):
         g = GraphBuilderService().build_integrated_graph(data)
-        # charlie → bob ocorre via comentário (2) e via review (4) → 6
+        # charlie → bob ocorre via comentário em PR (2) e via review (4) → 6
         assert g.get_edge_weight(2, 1) == pytest.approx(6.0)
         # alice → bob é só do merge (5)
         assert g.get_edge_weight(0, 1) == pytest.approx(5.0)
-        # dani → alice é só do fechamento (3)
+        # dani → alice é só do fechamento de issue (3)
         assert g.get_edge_weight(3, 0) == pytest.approx(3.0)
-        # charlie → alice é só comentário (2)
-        assert g.get_edge_weight(2, 0) == pytest.approx(2.0)
+        # charlie → alice é comentário em ISSUE (peso 3 — Interpretação A do PDF)
+        assert g.get_edge_weight(2, 0) == pytest.approx(3.0)
 
     def test_build_all_pdf_graphs_returns_four_keys(self, data):
         graphs = GraphBuilderService().build_all_pdf_graphs(data)
