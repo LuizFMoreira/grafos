@@ -1,340 +1,357 @@
-@startuml Diagrama de Classes - Análise de Colaboração no GitHub
-!define ABSTRACT_COLOR #87CEEB
-!define CONCRETE_COLOR #90EE90
-!define MODEL_COLOR #FFB6C1
-!define SERVICE_COLOR #FFD700
-!define EXPORT_COLOR #DDA0DD
+@startuml
+title Diagrama de Classes - Análise de Colaboração no GitHub
 
-skinparam classBackgroundColor<<abstract>> ABSTRACT_COLOR
-skinparam classBackgroundColor<<concrete>> CONCRETE_COLOR
-skinparam classBackgroundColor<<model>> MODEL_COLOR
-skinparam classBackgroundColor<<service>> SERVICE_COLOR
-skinparam classBackgroundColor<<export>> EXPORT_COLOR
+' Cores diretas para compatibilidade máxima
+skinparam classBackgroundColor<<abstract>> #87CEEB
+skinparam classBackgroundColor<<concrete>> #90EE90
+skinparam classBackgroundColor<<model>> #FFB6C1
+skinparam classBackgroundColor<<service>> #FFD700
+skinparam classBackgroundColor<<export>> #DDA0DD
+skinparam classBackgroundColor<<api>> #FFA07A
+skinparam classBackgroundColor<<exception>> #FFE4E1
 
 ' ============================================================================
-' CAMADA MODEL - Estrutura de Dados
+' CAMADA MODEL - Estrutura de Dados (Fundacional)
 ' ============================================================================
 package "Model" {
-    class User {
+    class User <<model>> {
         -id: int
         -login: str
+        ==
         +getId(): int
         +getLogin(): str
     }
 
-    enum InteractionType {
-        ISSUE_COMMENT = 2
-        ISSUE_CLOSE = 1
-        PR_COMMENT = 2
-        PR_REVIEW = 4
-        PR_APPROVAL = 3
-        PR_MERGE = 5
+    enum InteractionType <<model>> {
+        ISSUE_CLOSE (1)
+        ISSUE_COMMENT (2)
+        PR_COMMENT (2)
+        PR_APPROVAL (3)
+        PR_REVIEW (4)
+        PR_MERGE (5)
     }
 
-    class Interaction {
+    class Interaction <<model>> {
         -source: User
         -target: User
         -type: InteractionType
         -weight: float
+        ==
         +getSource(): User
         +getTarget(): User
         +getType(): InteractionType
         +getWeight(): float
         +setWeight(float): void
     }
+
+    class Edge <<model>> {
+        -destination: int
+        -weight: float
+        ==
+        +__init__(destination: int, weight: float)
+        +getDestination(): int
+        +getWeight(): float
+        +increaseWeight(delta: float): void
+    }
 }
 
-User --> InteractionType: usa
-Interaction --> User: source/target
-Interaction --> InteractionType: type
+Interaction *-- User : source (composição)
+Interaction *-- User : target (composição)
+Interaction --> InteractionType : usa
 
 ' ============================================================================
-' CAMADA GRAPH - Estrutura de Grafos
+' CAMADA EXCEPTION - Exceções Customizadas
+' ============================================================================
+package "Exceptions" {
+    class InvalidVertexError <<exception>> {
+        -vertex: int
+        -vertexCount: int
+        ==
+        +__init__(vertex: int, vertexCount: int)
+    }
+
+    class SelfLoopError <<exception>> {
+        -u: int
+        -v: int
+        ==
+        +__init__(u: int, v: int)
+    }
+
+    class InvalidEdgeError <<exception>> {
+        -u: int
+        -v: int
+        ==
+        +__init__(u: int, v: int)
+    }
+}
+
+' ============================================================================
+' CAMADA GRAPH - Estrutura de Grafos (Core)
 ' ============================================================================
 package "Graph" {
-    abstract class AbstractGraph<<abstract>> {
-        #vertex_count: int
-        #edge_count: int
-        #vertex_weights: List<float>
-        #labels: List<str>
-        +__init__(vertex_count: int)
-        +_validate_vertex(v: int): void
-        +_validate_vertices(*vertices: int): void
-        +get_vertex_count(): int
-        +get_edge_count(): int
-        +is_empty_graph(): bool
-        +set_vertex_weight(v: int, weight: float): void
-        +get_vertex_weight(v: int): float
-        +set_vertex_label(v: int, label: str): void
-        +get_vertex_label(v: int): str
-        +{abstract} add_edge(u: int, v: int, weight: float = 1.0): void
-        +{abstract} remove_edge(u: int, v: int): void
-        +{abstract} has_edge(u: int, v: int): bool
-        +{abstract} set_edge_weight(u: int, v: int, weight: float): void
-        +{abstract} get_edge_weight(u: int, v: int): float
-        +{abstract} get_vertex_in_degree(v: int): int
-        +{abstract} get_vertex_out_degree(v: int): int
-        +{abstract} is_successor(u: int, v: int): bool
-        +{abstract} is_predecessor(u: int, v: int): bool
-        +{abstract} is_divergent(u1: int, v1: int, u2: int, v2: int): bool
-        +{abstract} is_convergent(u1: int, v1: int, u2: int, v2: int): bool
-        +{abstract} is_incident(u: int, v: int, x: int): bool
-        +{abstract} is_connected(): bool
-        +{abstract} is_complete_graph(): bool
-        +{abstract} export_to_gephi(filepath: str, format: str = "gexf"): void
+    abstract class AbstractGraph <<abstract>> {
+        #vertexCount: int
+        #edgeCount: int
+        #vertexWeights: List
+        #labels: List
+        ==
+        +AbstractGraph(vertexCount: int)
+        +validateVertex(v: int): void
+        +getVertexCount(): int
+        +getEdgeCount(): int
+        +isEmptyGraph(): bool
+        +setVertexWeight(v: int, weight: float): void
+        +getVertexWeight(v: int): float
+        +setVertexLabel(v: int, label: str): void
+        +getVertexLabel(v: int): str
+        ==
+        +{abstract} addEdge(u: int, v: int, weight: float): void
+        +{abstract} removeEdge(u: int, v: int): void
+        +{abstract} hasEdge(u: int, v: int): bool
+        +{abstract} setEdgeWeight(u: int, v: int, weight: float): void
+        +{abstract} getEdgeWeight(u: int, v: int): float
+        +{abstract} getInDegree(v: int): int
+        +{abstract} getOutDegree(v: int): int
+        +{abstract} isSuccessor(u: int, v: int): bool
+        +{abstract} isPredecessor(u: int, v: int): bool
+        +{abstract} isConnected(): bool
+        +{abstract} isCompleteGraph(): bool
     }
 
-    class Edge {
-        -_destination: int
-        -_weight: float
-        +__init__(destination: int, weight: float = 1.0)
-        +destination: int {property}
-        +weight: float {property}
-        +weight=(value: float): void {setter}
-        +increase_weight(delta: float): void
-        +__eq__(other): bool
-        +__hash__(): int
-        +__lt__(other): bool
+    class AdjacencyListGraph <<concrete>> {
+        -adjacencyList: Dict
+        ==
+        +AdjacencyListGraph(vertexCount: int)
+        +addEdge(u: int, v: int, weight: float): void
+        +removeEdge(u: int, v: int): void
+        +hasEdge(u: int, v: int): bool
+        +getInDegree(v: int): int
+        +getOutDegree(v: int): int
+        +isConnected(): bool
     }
 
-    class AdjacencyListGraph<<concrete>> {
-        -_adjacency_list: Dict[int, List<Edge>>
-        +__init__(vertex_count: int)
-        +add_edge(u: int, v: int, weight: float = 1.0): void
-        +remove_edge(u: int, v: int): void
-        +has_edge(u: int, v: int): bool
-        +set_edge_weight(u: int, v: int, weight: float): void
-        +get_edge_weight(u: int, v: int): float
-        +get_vertex_in_degree(v: int): int
-        +get_vertex_out_degree(v: int): int
-        +is_successor(u: int, v: int): bool
-        +is_predecessor(u: int, v: int): bool
-        +is_divergent(u1: int, v1: int, u2: int, v2: int): bool
-        +is_convergent(u1: int, v1: int, u2: int, v2: int): bool
-        +is_incident(u: int, v: int, x: int): bool
-        +is_connected(): bool
-        +is_complete_graph(): bool
-        +export_to_gephi(filepath: str, format: str = "gexf"): void
+    class AdjacencyMatrixGraph <<concrete>> {
+        -matrix: List
+        ==
+        +AdjacencyMatrixGraph(vertexCount: int)
+        +addEdge(u: int, v: int, weight: float): void
+        +removeEdge(u: int, v: int): void
+        +hasEdge(u: int, v: int): bool
+        +getInDegree(v: int): int
+        +getOutDegree(v: int): int
+        +isConnected(): bool
     }
 
-    class AdjacencyMatrixGraph<<concrete>> {
-        -_matrix: List[List<float>>
-        +__init__(vertex_count: int)
-        +add_edge(u: int, v: int, weight: float = 1.0): void
-        +remove_edge(u: int, v: int): void
-        +has_edge(u: int, v: int): bool
-        +set_edge_weight(u: int, v: int, weight: float): void
-        +get_edge_weight(u: int, v: int): float
-        +get_vertex_in_degree(v: int): int
-        +get_vertex_out_degree(v: int): int
-        +is_successor(u: int, v: int): bool
-        +is_predecessor(u: int, v: int): bool
-        +is_divergent(u1: int, v1: int, u2: int, v2: int): bool
-        +is_convergent(u1: int, v1: int, u2: int, v2: int): bool
-        +is_incident(u: int, v: int, x: int): bool
-        +is_connected(): bool
-        +is_complete_graph(): bool
-        +export_to_gephi(filepath: str, format: str = "gexf"): void
-    }
-
-    AdjacencyListGraph --|> AbstractGraph: herança
-    AdjacencyMatrixGraph --|> AbstractGraph: herança
-    AbstractGraph --> Edge: usa
+    AdjacencyListGraph --|> AbstractGraph : herança
+    AdjacencyMatrixGraph --|> AbstractGraph : herança
+    AbstractGraph o-- Edge : contém (agregação)
 }
 
 ' ============================================================================
 ' CAMADA API - Integração com GitHub
 ' ============================================================================
-package "API" {
-    class GithubApiClient {
+package "GitHub Miner" {
+    class RateLimiter <<api>> {
+        -limit: int
+        -remaining: int
+        -resetTime: int
+        ==
+        +RateLimiter(limit: int)
+        +waitIfNeeded(): void
+        +updateFromHeaders(headers: Dict): void
+    }
+
+    class GithubApiClient <<api>> {
         -token: str
         -owner: str
         -repo: str
-        -_rate_limiter: RateLimiter
-        +__init__(token: str, owner: str, repo: str)
-        +get_issues(): List<Issue>
-        +get_pull_requests(): List<PullRequest>
-        +get_comments(type: str = "issue"): List<Comment>
-        +get_reviews(): List<Review>
-        +_fetch(endpoint: str): Dict
+        -rateLimiter: RateLimiter
+        ==
+        +GithubApiClient(token: str, owner: str, repo: str)
+        +getIssues(): List
+        +getPullRequests(): List
+        +getComments(type: str): List
+        +getReviews(): List
     }
 
-    class RateLimiter {
-        -limit: int
-        -remaining: int
-        -reset_time: int
-        +__init__(limit: int = 5000)
-        +wait_if_needed(): void
-        +update_from_headers(headers: Dict): void
+    class DataTransformer <<api>> {
+        -userMap: Dict
+        ==
+        +parseUsers(rawData: List): Dict
+        +transformToInteraction(raw: Dict): Interaction
     }
 
-    class Issue {
-        -number: int
-        -title: str
-        -user: User
-        -closed_by: User
-        -state: str
-    }
-
-    class PullRequest {
-        -number: int
-        -title: str
-        -user: User
-        -merged_by: User
-        -state: str
-    }
-
-    class Comment {
-        -id: int
-        -user: User
-        -body: str
-        -created_at: str
-    }
-
-    class Review {
-        -id: int
-        -user: User
-        -state: str
-        -created_at: str
-    }
-
-    GithubApiClient --> RateLimiter: usa
-    GithubApiClient --> Issue: retorna
-    GithubApiClient --> PullRequest: retorna
-    GithubApiClient --> Comment: retorna
-    GithubApiClient --> Review: retorna
+    GithubApiClient *-- RateLimiter : possui (composição)
 }
 
 ' ============================================================================
 ' CAMADA SERVICE - Lógica de Negócio
 ' ============================================================================
 package "Service" {
-    class GraphBuilderService {
-        -github_client: GithubApiClient
+    class GraphBuilderService <<service>> {
+        -githubClient: GithubApiClient
         -graph: AbstractGraph
-        +__init__(github_client: GithubApiClient, graph: AbstractGraph)
-        +build_graph(): AbstractGraph
-        -_process_comments(comments: List<Comment>): void
-        -_process_reviews(reviews: List<Review>): void
-        -_process_merges(pull_requests: List<PullRequest>): void
-        -_add_interaction(source: User, target: User, weight: float): void
+        -transformer: DataTransformer
+        ==
+        +GraphBuilderService(client: GithubApiClient, graph: AbstractGraph)
+        +buildGraph(issues: List, prs: List, comments: List, reviews: List): AbstractGraph
     }
 
-    class MetricsService {
+    class MetricsService <<service>> {
         -graph: AbstractGraph
-        +__init__(graph: AbstractGraph)
-        +degree_centrality(v: int): float
-        +in_degree(v: int): int
-        +out_degree(v: int): int
-        +betweenness_centrality(v: int): float
-        +closeness_centrality(v: int): float
-        +pagerank(): Dict<int, float>
-        +eigenvector_centrality(): Dict<int, float>
-        +clustering_coefficient(v: int): float
+        -cache: Dict
+        ==
+        +MetricsService(graph: AbstractGraph)
+        +degreeCentrality(v: int): float
+        +inDegree(v: int): int
+        +outDegree(v: int): int
+        +betweennessCentrality(v: int): float
+        +closenessCentrality(v: int): float
+        +pagerank(): Dict
+        +clusteringCoefficient(v: int): float
         +density(): float
     }
 
-    GraphBuilderService --> AbstractGraph: usa
-    GraphBuilderService --> GithubApiClient: usa
-    MetricsService --> AbstractGraph: analisa
+    GraphBuilderService --> AbstractGraph : constrói
+    GraphBuilderService --> GithubApiClient : utiliza
+    GraphBuilderService --> DataTransformer : transforma
+    MetricsService --> AbstractGraph : analisa
 }
 
 ' ============================================================================
 ' CAMADA EXPORT - Exportação de Dados
 ' ============================================================================
 package "Export" {
-    abstract class BaseExporter<<abstract>> {
-        -graph: AbstractGraph
-        -filepath: str
-        +__init__(graph: AbstractGraph, filepath: str)
+    abstract class BaseExporter <<abstract>> {
+        #graph: AbstractGraph
+        #filepath: str
+        ==
+        +BaseExporter(graph: AbstractGraph, filepath: str)
         +{abstract} export(): void
-        #_prepare_nodes(): List<Dict>
-        #_prepare_edges(): List<Dict>
+        #prepareNodes(): List
+        #prepareEdges(): List
     }
 
-    class CSVExporter<<concrete>> {
+    class CSVExporter <<concrete>> {
+        -delimiter: str
+        ==
         +export(): void
-        -_export_nodes(filepath: str): void
-        -_export_edges(filepath: str): void
     }
 
-    class GEXFExporter<<concrete>> {
+    class GEXFExporter <<concrete>> {
+        -version: str
+        ==
         +export(): void
-        -_create_gexf_structure(): str
     }
 
-    class GraphMLExporter<<concrete>> {
+    class GraphMLExporter <<concrete>> {
+        -version: str
+        ==
         +export(): void
-        -_create_graphml_structure(): str
     }
 
-    CSVExporter --|> BaseExporter: herança
-    GEXFExporter --|> BaseExporter: herança
-    GraphMLExporter --|> BaseExporter: herança
-    BaseExporter --> AbstractGraph: exporta
+    CSVExporter --|> BaseExporter : herança
+    GEXFExporter --|> BaseExporter : herança
+    GraphMLExporter --|> BaseExporter : herança
+    BaseExporter o-- AbstractGraph : processa (agregação)
 }
 
 ' ============================================================================
 ' CAMADA APP - Orquestração Principal
 ' ============================================================================
 package "App" {
-    class MainApp {
-        -config: AppConfig
-        -graph: AbstractGraph
-        -metrics: MetricsService
-        +__init__(config: AppConfig)
-        +run(): void
-        -_parse_arguments(): AppConfig
-        -_initialize_graph(): void
-        -_build_graph(): void
-        -_calculate_metrics(): void
-        -_export_results(): void
-        -_print_summary(): void
-    }
-
-    class AppConfig {
+    class AppConfig <<service>> {
         +owner: str
         +repo: str
         +token: str
-        +output_dir: str
-        +formats: List<str>
+        +outputDir: str
+        +formats: List
         +verbose: bool
+        ==
+        +validate(): bool
     }
 
-    MainApp --> AppConfig: usa
-    MainApp --> AbstractGraph: cria/usa
-    MainApp --> GraphBuilderService: usa
-    MainApp --> MetricsService: usa
-    MainApp --> BaseExporter: usa
+    class MainApp <<service>> {
+        -config: AppConfig
+        -githubClient: GithubApiClient
+        -graph: AbstractGraph
+        -builder: GraphBuilderService
+        -metrics: MetricsService
+        ==
+        +MainApp(config: AppConfig)
+        +run(): void
+    }
+
+    MainApp *-- AppConfig : configura (composição)
+    MainApp --> GithubApiClient : cria
+    MainApp --> AbstractGraph : instancia
+    MainApp --> GraphBuilderService : utiliza
+    MainApp --> MetricsService : utiliza
+    MainApp --> BaseExporter : utiliza
 }
 
 ' ============================================================================
-' LEGENDA
+' NOTAS E DOCUMENTAÇÃO
 ' ============================================================================
+
 note right of AbstractGraph
-    **Restrições do Grafo:**
-    • Sem self-loops (u ≠ v)
-    • Sem múltiplas arestas
-    • Idempotente: add_edge(u,v) 2x = peso acumulado
-    • Direcionado: u → v
+    **Padrão: Template Method**
+
+    Interface abstrata que define contrato
+    para todas as implementações de grafos.
+
+    **Restrições:**
+    - Sem self-loops (u != v)
+    - Sem múltiplas arestas
+    - Idempotente: add_edge(u,v) 2x = acumula
+    - Direcionado: u -> v
 end note
 
 note right of GraphBuilderService
+    **Padrão: Service Layer**
+
+    Orquestra transformação:
+    dados GitHub -> Grafo ponderado
+
     **Pesos das Interações:**
-    • Comentário: +2
-    • Fechamento: +1
-    • Aprovação: +3
-    • Review: +4
-    • Merge: +5
+    - Comentário: +2
+    - Fechamento: +1
+    - Aprovação: +3
+    - Review: +4
+    - Merge: +5
 end note
 
 note right of MetricsService
-    **Algoritmos Implementados:**
-    • Centrality (Degree, Betweenness, Closeness)
-    • PageRank (iteração de potência)
-    • Eigenvector centrality
-    • Clustering coefficient
-    • Densidade de rede
+    **Padrão: Strategy**
+
+    Implementa múltiplos algoritmos
+    de análise de rede em Python puro.
+
+    **Algoritmos:**
+    - Degree, Betweenness, Closeness
+    - PageRank (power iteration)
+    - Eigenvector, Clustering
+    - Densidade, Conectividade
+end note
+
+note right of BaseExporter
+    **Padrão: Strategy + Template Method**
+
+    Define interface para exportadores.
+    Cada formato estende com lógica específica.
+
+    **Formatos Suportados:**
+    - CSV (simples, importável)
+    - GEXF (Gephi nativo)
+    - GraphML (interoperabilidade)
+end note
+
+note bottom
+    **Relações UML:**
+    --|> = Generalização (herança)
+    o-- = Agregação (ciclo de vida independente)
+    *-- = Composição (ciclo de vida vinculado)
+    --> = Associação (utiliza/depende)
 end note
 
 @enduml
