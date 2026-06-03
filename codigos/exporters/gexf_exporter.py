@@ -85,6 +85,11 @@ class GEXFExporter(BaseExporter):
 
         lines.append('    </attributes>')
 
+        # Atributos de arestas
+        lines.append('    <attributes class="edge">')
+        lines.append('      <attribute id="0" title="weight" type="float" />')
+        lines.append('    </attributes>')
+
         # Nós
         lines.append('    <nodes>')
         for vertex_idx in range(self.graph.get_vertex_count()):
@@ -161,5 +166,9 @@ class GEXFExporter(BaseExporter):
 
         return (
             f'      <edge id="{edge_id}" source="{source}" '
-            f'target="{target}" weight="{weight}" />'
+            f'target="{target}" weight="{weight}">\n'
+            f'        <attvalues>\n'
+            f'          <attvalue for="0" value="{weight}" />\n'
+            f'        </attvalues>\n'
+            f'      </edge>'
         )

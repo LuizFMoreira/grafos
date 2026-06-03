@@ -345,6 +345,7 @@ class AdjacencyMatrixGraph(AbstractGraph):
             f.write(
                 '<graphml xmlns="http://graphml.graphdrawing.org/xmlschema/graphml">\n'
             )
+            f.write('  <key id="weight" for="edge" attr.name="weight" attr.type="double" />\n')
             f.write('  <graph edgedefault="directed">\n')
 
             # Nós
@@ -359,7 +360,9 @@ class AdjacencyMatrixGraph(AbstractGraph):
                     if self._matrix[u][v] != 0.0:
                         f.write(
                             f'    <edge id="{edge_id}" source="{u}" '
-                            f'target="{v}" weight="{self._matrix[u][v]}" />\n'
+                            f'target="{v}">\n'
+                            f'      <data key="weight">{self._matrix[u][v]}</data>\n'
+                            f'    </edge>\n'
                         )
                         edge_id += 1
 

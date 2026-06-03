@@ -348,6 +348,7 @@ class AdjacencyListGraph(AbstractGraph):
         with open(f"{filepath}.graphml", "w", encoding="utf-8") as f:
             f.write('<?xml version="1.0" encoding="UTF-8"?>\n')
             f.write('<graphml xmlns="http://graphml.graphdrawing.org/xmlschema/graphml">\n')
+            f.write('  <key id="weight" for="edge" attr.name="weight" attr.type="double" />\n')
             f.write('  <graph edgedefault="directed">\n')
 
             # Nós
@@ -361,7 +362,9 @@ class AdjacencyListGraph(AbstractGraph):
                 for edge in self._adjacency[u]:
                     f.write(
                         f'    <edge id="{edge_id}" source="{u}" '
-                        f'target="{edge.destination}" weight="{edge.weight}" />\n'
+                        f'target="{edge.destination}">\n'
+                        f'      <data key="weight">{edge.weight}</data>\n'
+                        f'    </edge>\n'
                     )
                     edge_id += 1
 

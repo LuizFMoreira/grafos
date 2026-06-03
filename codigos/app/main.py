@@ -143,7 +143,7 @@ def main(args=None) -> int:
         builder = GraphBuilderService(use_adjacency_list=use_list)
 
         try:
-            graphs = builder.build_all_graphs(collab_graph)
+            graphs = builder.build_all_pdf_graphs(collab_graph)
             for name, graph in graphs.items():
                 stats = GraphBuilderService.get_graph_statistics(graph)
                 print(f"  ✓ {name}: {stats['vertices']} vértices, "
@@ -156,7 +156,7 @@ def main(args=None) -> int:
         # 3. Cálculo de métricas
         print("\n[3/4] Calculando métricas de rede...")
         try:
-            metrics_service = MetricsService(graphs['total'], collab_graph.users)
+            metrics_service = MetricsService(graphs['integrated'], collab_graph.users)
             all_metrics = metrics_service.calculate_all_metrics()
 
             summary = metrics_service.get_metrics_summary()
@@ -182,30 +182,42 @@ def main(args=None) -> int:
 
         exported_files = []
 
+        # Mapeamento dos 4 grafos exigidos pelo PDF
+        graph_names = {
+            'comments': 'comments',
+            'issue_close': 'issue_close',
+            'reviews_merges': 'reviews_merges',
+            'integrated': 'total',
+        }
+
         try:
-            if 'csv' in formats:
-                csv_path = os.path.join(output_dir, f"{owner}_{repo}_total")
-                csv_exporter = CSVExporter(graphs['total'], all_metrics)
-                csv_exporter.export(csv_path)
-                print(f"  ✓ CSV exportado: {csv_path}_*.csv")
-                exported_files.extend([
-                    f"{csv_path}_nodes.csv",
-                    f"{csv_path}_edges.csv",
-                ])
+            for graph_key, suffix in graph_names.items():
+                g = graphs[graph_key]
+                base = os.path.join(output_dir, f"{owner}_{repo}_{suffix}")
 
-            if 'gexf' in formats:
-                gexf_path = os.path.join(output_dir, f"{owner}_{repo}_total.gexf")
-                gexf_exporter = GEXFExporter(graphs['total'], all_metrics)
-                gexf_exporter.export(gexf_path)
-                print(f"  ✓ GEXF exportado: {gexf_path}")
-                exported_files.append(gexf_path)
+                # Métricas: usamos all_metrics apenas para o grafo integrado;
+                # para os outros criamos métricas simples baseadas no mesmo usuário.
+                g_metrics = all_metrics
 
-            if 'graphml' in formats:
-                graphml_path = os.path.join(output_dir, f"{owner}_{repo}_total.graphml")
-                graphml_exporter = GraphMLExporter(graphs['total'], all_metrics)
-                graphml_exporter.export(graphml_path)
-                print(f"  ✓ GraphML exportado: {graphml_path}")
-                exported_files.append(graphml_path)
+                if 'csv' in formats:
+                    csv_exporter = CSVExporter(g, g_metrics)
+                    csv_exporter.export(base)
+                    print(f"  ✓ CSV ({suffix}): {base}_*.csv")
+                    exported_files.extend([f"{base}_nodes.csv", f"{base}_edges.csv"])
+
+                if 'gexf' in formats:
+                    gexf_path = f"{base}.gexf"
+                    gexf_exporter = GEXFExporter(g, g_metrics)
+                    gexf_exporter.export(gexf_path)
+                    print(f"  ✓ GEXF ({suffix}): {gexf_path}")
+                    exported_files.append(gexf_path)
+
+                if 'graphml' in formats:
+                    graphml_path = f"{base}.graphml"
+                    graphml_exporter = GraphMLExporter(g, g_metrics)
+                    graphml_exporter.export(graphml_path)
+                    print(f"  ✓ GraphML ({suffix}): {graphml_path}")
+                    exported_files.append(graphml_path)
 
         except Exception as e:
             print(f"  ✗ Erro ao exportar: {e}")

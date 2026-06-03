@@ -52,6 +52,7 @@ class GraphMLExporter(BaseExporter):
         )
 
         # Keys (atributos globais)
+        lines.append('  <key id="d0" for="node" attr.name="label" attr.type="string" />')
         lines.append('  <key id="d1" for="node" attr.name="degree_centrality" attr.type="float" />')
         lines.append('  <key id="d2" for="node" attr.name="in_degree" attr.type="int" />')
         lines.append('  <key id="d3" for="node" attr.name="out_degree" attr.type="int" />')
@@ -97,9 +98,10 @@ class GraphMLExporter(BaseExporter):
         """
         lines = []
 
-        lines.append(f'    <node id="n{vertex_idx}" label="{node_data["label"]}">')
+        lines.append(f'    <node id="n{vertex_idx}">')
 
         # Atributos do nó
+        lines.append(f'      <data key="d0">{node_data["label"]}</data>')
         lines.append(f'      <data key="d1">{node_data["degree_centrality"]}</data>')
         lines.append(f'      <data key="d2">{node_data["in_degree"]}</data>')
         lines.append(f'      <data key="d3">{node_data["out_degree"]}</data>')
